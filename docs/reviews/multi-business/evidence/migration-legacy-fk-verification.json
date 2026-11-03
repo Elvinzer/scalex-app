@@ -1,0 +1,1120 @@
+{
+  "status": "passed",
+  "startedAt": "2026-11-03T11:20:05.597Z",
+  "baseCommit": "6ab432981e5d5e3638f437de5f4aef079c068ab2",
+  "database": {
+    "name": "minaly_multibusiness_migration_20261103_d4ae5de4",
+    "host": "127.0.0.1",
+    "retainedForReview": true
+  },
+  "assertions": [
+    {
+      "name": "administrative connection is loopback",
+      "passed": true
+    },
+    {
+      "name": "target is a newly created disposable database",
+      "passed": true
+    },
+    {
+      "name": "baseline is the full pre-change schema",
+      "passed": true
+    },
+    {
+      "name": "historical video-attribution foreign key name reproduced",
+      "passed": true
+    },
+    {
+      "name": "baseline journal ends at migration 71",
+      "passed": true
+    },
+    {
+      "name": "official runner applied migrations 72 and 73",
+      "passed": true
+    },
+    {
+      "name": "history contains exactly one row per journal entry",
+      "passed": true,
+      "rows": 74
+    },
+    {
+      "name": "0072_independent_businesses hash and timestamp match its source",
+      "passed": true
+    },
+    {
+      "name": "0073_harden_business_control_records hash and timestamp match its source",
+      "passed": true
+    },
+    {
+      "name": "all pre-change history hashes and timestamps are retained",
+      "passed": true
+    },
+    {
+      "name": "exactly the two legacy businesses are preserved",
+      "passed": true,
+      "names": [
+        "Legacy A",
+        "Legacy B"
+      ]
+    },
+    {
+      "name": "legacy business ownership is preserved",
+      "passed": true
+    },
+    {
+      "name": "invitation-only identity is not materialized as a business",
+      "passed": true
+    },
+    {
+      "name": "owner membership in another business is retained",
+      "passed": true
+    },
+    {
+      "name": "booking handles are preserved",
+      "passed": true
+    },
+    {
+      "name": "subscription customer backfill is preserved",
+      "passed": true
+    },
+    {
+      "name": "legacy sales amounts remain attached to their businesses",
+      "passed": true
+    },
+    {
+      "name": "legacy Stripe subscription identities are retained",
+      "passed": true
+    },
+    {
+      "name": "platform admin roster was synchronized by the official script",
+      "passed": true
+    },
+    {
+      "name": "all three new tables have RLS enabled",
+      "passed": true,
+      "tables": [
+        "agent_token_usage",
+        "businesses",
+        "platform_admin_emails"
+      ]
+    },
+    {
+      "name": "validated foreign key acquisition_funnel_benchmarks.acquisition_funnel_benchmarks_funnel_key_acquisition_funnels_fu",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key activity_log.activity_log_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key ad_campaigns.ad_campaigns_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key admin_ideas.admin_ideas_created_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key agent_chat_messages.agent_chat_messages_conversation_id_conversations_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key agent_chat_messages.agent_chat_messages_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key agent_token_usage.agent_token_usage_actor_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key agent_token_usage.agent_token_usage_business_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key booking_page_settings.booking_page_settings_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key business_levers.business_levers_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key business_profile.business_profile_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key businesses.businesses_owner_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key calendly_connections.calendly_connections_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_journey_stage_history.client_journey_stage_history_client_journey_id_client_journeys_",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_journey_stage_history.client_journey_stage_history_from_column_id_journey_columns_id_",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_journey_stage_history.client_journey_stage_history_to_column_id_journey_columns_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_journey_stage_history.client_journey_stage_history_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_journeys.client_journeys_column_id_journey_columns_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_journeys.client_journeys_sale_id_sales_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_journeys.client_journeys_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_milestones.client_milestones_client_journey_id_client_journeys_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_milestones.client_milestones_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_notes.client_notes_client_journey_id_client_journeys_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_notes.client_notes_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_reminders.client_reminders_client_journey_id_client_journeys_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key client_reminders.client_reminders_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key closing_kpi_entries.closing_kpi_entries_entered_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key closing_kpi_entries.closing_kpi_entries_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key closing_videos.closing_videos_sales_call_id_sales_calls_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key closing_videos.closing_videos_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key content_posts.content_posts_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key content_recommendations.content_recommendations_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key conversations.conversations_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_actions.crm_actions_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_actions.crm_actions_completed_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_actions.crm_actions_created_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_actions.crm_actions_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_actions.crm_actions_responsible_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_links.crm_call_links_accepted_suggestion_id_crm_call_match_suggestion",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_links.crm_call_links_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_links.crm_call_links_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_links.crm_call_links_linked_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_links.crm_call_links_sales_call_id_sales_calls_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_match_candidates.crm_call_match_candidates_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_match_candidates.crm_call_match_candidates_suggestion_id_crm_call_match_suggesti",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_match_suggestions.crm_call_match_suggestions_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_match_suggestions.crm_call_match_suggestions_decided_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_call_match_suggestions.crm_call_match_suggestions_sales_call_id_sales_calls_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_imports.crm_imports_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_imports.crm_imports_actor_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_events.crm_lead_events_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_events.crm_lead_events_actor_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_events.crm_lead_events_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_profiles.crm_lead_profiles_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_profiles.crm_lead_profiles_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_stage_history.crm_lead_stage_history_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_stage_history.crm_lead_stage_history_actor_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_stage_history.crm_lead_stage_history_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_lead_stage_history.crm_lead_stage_history_responsible_setter_id_setters_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_message_ab_test_assignments.crm_message_ab_test_assignments_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_message_ab_test_assignments.crm_message_ab_test_assignments_copied_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_message_ab_test_assignments.crm_message_ab_test_assignments_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_message_ab_test_assignments.crm_message_ab_test_assignments_sent_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_message_ab_test_assignments.crm_message_ab_test_assignments_test_id_crm_message_ab_tests_id",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_message_ab_tests.crm_message_ab_tests_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_message_ab_tests.crm_message_ab_tests_created_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_responsibility_history.crm_responsibility_history_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_responsibility_history.crm_responsibility_history_actor_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_responsibility_history.crm_responsibility_history_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_responsibility_history.crm_responsibility_history_next_setter_id_setters_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key crm_responsibility_history.crm_responsibility_history_previous_setter_id_setters_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key data_imports.data_imports_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key diagnostics.diagnostics_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key email_campaigns.email_campaigns_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key funnel_block_benchmarks.funnel_block_benchmarks_block_key_funnel_blocks_block_key_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key funnel_stage_insights.funnel_stage_insights_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key iclosed_connections.iclosed_connections_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key improvement_events.improvement_events_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key improvement_initiatives.improvement_initiatives_assigned_team_member_id_team_members_id",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key improvement_initiatives.improvement_initiatives_insight_record_id_insight_records_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key improvement_initiatives.improvement_initiatives_project_id_projects_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key improvement_initiatives.improvement_initiatives_todo_id_todos_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key improvement_initiatives.improvement_initiatives_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key initiative_measurements.initiative_measurements_initiative_id_improvement_initiatives_i",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key initiative_measurements.initiative_measurements_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key initiative_nudges.initiative_nudges_initiative_id_improvement_initiatives_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key initiative_nudges.initiative_nudges_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key initiative_weekly_focus.initiative_weekly_focus_initiative_id_improvement_initiatives_i",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key initiative_weekly_focus.initiative_weekly_focus_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key insight_records.insight_records_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key instagram_connections.instagram_connections_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key instagram_post_insights.instagram_post_insights_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key journal_notes.journal_notes_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key journey_columns.journey_columns_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key lead_comments.lead_comments_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key lead_comments.lead_comments_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key lead_stage_history.lead_stage_history_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key leads.leads_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key leads.leads_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key leads.leads_meta_touchpoint_id_meta_ad_touchpoints_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key leads.leads_sale_id_sales_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key leads.leads_setter_id_setters_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key leads.leads_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key lever_starter_progress.lever_starter_progress_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_accounts.meta_ad_accounts_connection_id_meta_ads_connections_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_accounts.meta_ad_accounts_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_action_logs.meta_ad_action_logs_ad_account_id_meta_ad_accounts_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_action_logs.meta_ad_action_logs_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_metric_corrections.meta_ad_metric_corrections_ad_account_id_meta_ad_accounts_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_metric_corrections.meta_ad_metric_corrections_metric_row_id_meta_ad_metrics_daily_",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_metric_corrections.meta_ad_metric_corrections_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_metrics_daily.meta_ad_metrics_daily_ad_account_id_meta_ad_accounts_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_metrics_daily.meta_ad_metrics_daily_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_sets.meta_ad_sets_ad_account_id_meta_ad_accounts_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_sets.meta_ad_sets_campaign_id_meta_campaigns_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_sets.meta_ad_sets_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ad_touchpoints.meta_ad_touchpoints_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ads.meta_ads_ad_account_id_meta_ad_accounts_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ads.meta_ads_ad_set_id_meta_ad_sets_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ads.meta_ads_campaign_id_meta_campaigns_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ads.meta_ads_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_ads_connections.meta_ads_connections_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_campaign_profiles.meta_campaign_profiles_campaign_id_meta_campaigns_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_campaign_profiles.meta_campaign_profiles_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_campaigns.meta_campaigns_ad_account_id_meta_ad_accounts_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key meta_campaigns.meta_campaigns_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key monthly_metrics.monthly_metrics_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_activities.native_booking_activities_booking_id_native_bookings_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_activities.native_booking_activities_from_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_activities.native_booking_activities_to_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_availability.native_booking_availability_event_id_native_booking_events_id_f",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_calendar_conflicts.native_booking_calendar_conflicts_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_calendar_conflicts.native_booking_calendar_conflicts_connection_id_native_calendar",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_calendar_conflicts.native_booking_calendar_conflicts_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_calendar_settings.native_booking_calendar_settings_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_calendar_settings.native_booking_calendar_settings_invitation_connection_id_nativ",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_calendar_settings.native_booking_calendar_settings_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_event_closers.native_booking_event_closers_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_event_closers.native_booking_event_closers_event_id_native_booking_events_id_",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_events.native_booking_events_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_exceptions.native_booking_exceptions_event_id_native_booking_events_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_leads.native_booking_leads_event_id_native_booking_events_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_leads.native_booking_leads_link_id_native_booking_links_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_leads.native_booking_leads_meta_touchpoint_id_meta_ad_touchpoints_id_",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_leads.native_booking_leads_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_links.native_booking_links_event_id_native_booking_events_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_links.native_booking_links_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_notifications.native_booking_notifications_booking_id_native_bookings_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_questions.native_booking_questions_event_id_native_booking_events_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_reminder_deliveries.native_booking_reminder_deliveries_booking_id_native_bookings_i",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_reminder_deliveries.native_booking_reminder_deliveries_rule_id_native_booking_remin",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_booking_reminder_rules.native_booking_reminder_rules_event_id_native_booking_events_id",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_bookings.native_bookings_abandoned_lead_id_native_booking_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_bookings.native_bookings_calendar_connection_id_native_calendar_connecti",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_bookings.native_bookings_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_bookings.native_bookings_event_id_native_booking_events_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_bookings.native_bookings_link_id_native_booking_links_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_bookings.native_bookings_meta_touchpoint_id_meta_ad_touchpoints_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_bookings.native_bookings_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_calendar_connections.native_calendar_connections_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key native_calendar_connections.native_calendar_connections_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key projects.projects_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_attributions.referral_attributions_referral_code_id_referral_codes_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_attributions.referral_attributions_referred_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_attributions.referral_attributions_referrer_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_codes.referral_codes_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_commissions.referral_commissions_attribution_id_referral_attributions_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_commissions.referral_commissions_payout_id_referral_payouts_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_commissions.referral_commissions_referred_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_commissions.referral_commissions_referrer_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key referral_payouts.referral_payouts_referrer_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales.sales_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales.sales_meta_touchpoint_id_meta_ad_touchpoints_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales.sales_parent_sale_id_sales_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales.sales_setter_id_setters_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales.sales_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales_call_comments.sales_call_comments_call_id_sales_calls_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales_call_comments.sales_call_comments_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales_calls.sales_calls_closer_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales_calls.sales_calls_meta_touchpoint_id_meta_ad_touchpoints_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales_calls.sales_calls_sale_id_sales_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales_calls.sales_calls_setter_id_setters_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key sales_calls.sales_calls_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key scale_score_history.scale_score_history_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key setters.setters_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key setting_kpi_entries.setting_kpi_entries_entered_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key setting_kpi_entries.setting_kpi_entries_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key shared_agent_usage.shared_agent_usage_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key staff_members.staff_members_invited_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key staff_members.staff_members_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key streaks.streaks_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key stripe_connections.stripe_connections_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key stripe_insight_runs.stripe_insight_runs_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key stripe_transaction_refunds.stripe_transaction_refunds_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key stripe_transactions.stripe_transactions_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key subscriptions.subscriptions_plan_id_subscription_plans_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key subscriptions.subscriptions_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_ticket_attachments.support_ticket_attachments_submitted_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_ticket_attachments.support_ticket_attachments_ticket_id_support_tickets_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_ticket_events.support_ticket_events_actor_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_ticket_events.support_ticket_events_staff_member_id_staff_members_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_ticket_events.support_ticket_events_ticket_id_support_tickets_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_ticket_messages.support_ticket_messages_author_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_ticket_messages.support_ticket_messages_staff_member_id_staff_members_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_ticket_messages.support_ticket_messages_ticket_id_support_tickets_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_tickets.support_tickets_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_tickets.support_tickets_assigned_staff_id_staff_members_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_tickets.support_tickets_duplicate_of_ticket_id_support_tickets_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key support_tickets.support_tickets_submitted_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key team_member_roles.team_member_roles_role_id_team_roles_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key team_member_roles.team_member_roles_team_member_id_team_members_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key team_members.team_members_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key team_members.team_members_invited_by_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key team_members.team_members_member_user_id_users_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key team_roles.team_roles_account_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key testimonials.testimonials_client_journey_id_client_journeys_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key testimonials.testimonials_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key todos.todos_project_id_projects_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key todos.todos_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key video_attributions.video_attributions_lead_id_leads_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key video_attributions.video_attributions_sale_id_sales_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key video_attributions.video_attributions_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key weekly_reports.weekly_reports_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key winning_patterns.winning_patterns_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key youtube_card_metrics.youtube_card_metrics_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key youtube_connections.youtube_connections_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key youtube_end_screen_metrics.youtube_end_screen_metrics_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key youtube_reporting_jobs.youtube_reporting_jobs_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key youtube_reporting_reports.youtube_reporting_reports_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key youtube_video_insights.youtube_video_insights_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "validated foreign key youtube_video_snapshots.youtube_video_snapshots_user_id_businesses_id_fk",
+      "passed": true
+    },
+    {
+      "name": "no orphaned foreign keys or foreign business scope references",
+      "passed": true,
+      "foreignKeys": 231,
+      "businessScopeRelationships": 58
+    },
+    {
+      "name": "authenticated owner can read existing billing for recovery",
+      "passed": true
+    },
+    {
+      "name": "authenticated owner can update its operational business profile",
+      "passed": true
+    },
+    {
+      "name": "authenticated client cannot forge subscription state",
+      "passed": true
+    },
+    {
+      "name": "authenticated client cannot forge subscription deletion",
+      "passed": true
+    },
+    {
+      "name": "authenticated client cannot forge referral rates",
+      "passed": true
+    },
+    {
+      "name": "authenticated client cannot forge referral payouts",
+      "passed": true
+    },
+    {
+      "name": "authenticated client cannot forge shared usage quota",
+      "passed": true
+    },
+    {
+      "name": "authenticated client cannot forge token usage accounting",
+      "passed": true
+    },
+    {
+      "name": "legitimate cross-business referral and commission are accepted",
+      "passed": true
+    },
+    {
+      "name": "old writer bridge updates only the unambiguous initial business",
+      "passed": true
+    },
+    {
+      "name": "initial business configuration synchronizes back to legacy writers",
+      "passed": true
+    },
+    {
+      "name": "second business configuration does not alter the initial business or personal mirror",
+      "passed": true
+    },
+    {
+      "name": "second official run leaves every public table and migration row unchanged",
+      "passed": true,
+      "tables": 132,
+      "digest": "e66b8cefd8381a5e78f1a980269c9196c9dac30a19c722453b1be6a97cc4bd56"
+    }
+  ],
+  "commands": [
+    {
+      "command": "generate full baseline from the pre-change schema",
+      "exitCode": 0,
+      "durationMs": 489
+    },
+    {
+      "command": "npm run db:migrate (first official run)",
+      "exitCode": 0,
+      "durationMs": 670
+    },
+    {
+      "command": "npm run db:migrate (second official run)",
+      "exitCode": 0,
+      "durationMs": 513
+    }
+  ],
+  "baseline": {
+    "schemaSha256": "391242fb3f34d5df9bc35d969a9312a5c700f73a9c2b3108b167ca42a5fb1e6d",
+    "sqlSha256": "c936e5697ebac3df56cc0cfdd259092b2b30f4d992dbffcb4d7d58458b984218",
+    "tableCount": 129,
+    "generationDirectory": "/var/folders/bz/x8fdzc7d0qzgq__v407cc9bc0000gn/T/minaly-migration-baseline-reeswn"
+  },
+  "preUpgradeHistory": {
+    "rows": 72,
+    "digest": "3d5eab107cb0740dbf4fe3096ef3628404573239474dfd2622b30e31b7a4a9b2",
+    "latest": {
+      "tag": "0071_track_crm_message_test_copies",
+      "hash": "755a11a90e5b49b0cfa0a6021529b56741c726d1026eca365f10fe4e9c82acf2",
+      "createdAt": 1791300307838
+    }
+  },
+  "completedAt": "2026-11-03T11:20:08.435Z",
+  "durationMs": 2838
+}

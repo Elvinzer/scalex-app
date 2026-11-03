@@ -329,7 +329,10 @@ ALTER TABLE "testimonials" DROP CONSTRAINT "testimonials_user_id_users_id_fk";
 --> statement-breakpoint
 ALTER TABLE "todos" DROP CONSTRAINT "todos_user_id_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "video_attributions" DROP CONSTRAINT "video_attributions_user_id_users_id_fk";
+-- Older installations used Postgres's default constraint name here.
+ALTER TABLE "video_attributions" DROP CONSTRAINT IF EXISTS "video_attributions_user_id_users_id_fk";
+--> statement-breakpoint
+ALTER TABLE "video_attributions" DROP CONSTRAINT IF EXISTS "video_attributions_user_id_fkey";
 --> statement-breakpoint
 ALTER TABLE "weekly_reports" DROP CONSTRAINT "weekly_reports_user_id_users_id_fk";
 --> statement-breakpoint

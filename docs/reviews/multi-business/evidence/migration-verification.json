@@ -1,9 +1,9 @@
 {
   "status": "passed",
-  "startedAt": "2026-11-03T10:50:47.098Z",
+  "startedAt": "2026-11-03T11:20:39.663Z",
   "baseCommit": "6ab432981e5d5e3638f437de5f4aef079c068ab2",
   "database": {
-    "name": "minaly_multibusiness_migration_20261103_61d9f9b5",
+    "name": "minaly_multibusiness_migration_20261103_5be73b8d",
     "host": "127.0.0.1",
     "retainedForReview": true
   },
@@ -1076,31 +1076,31 @@
       "name": "second official run leaves every public table and migration row unchanged",
       "passed": true,
       "tables": 132,
-      "digest": "14642994caf35c79e50160b960a16f01fbfc03dfe46c9a313fb78a0b346aae2c"
+      "digest": "1dab5b8964d986a637da53e74495a70fac686aa8a7f4cb7dcee707053db5573f"
     }
   ],
   "commands": [
     {
       "command": "generate full baseline from the pre-change schema",
       "exitCode": 0,
-      "durationMs": 473
+      "durationMs": 463
     },
     {
       "command": "npm run db:migrate (first official run)",
       "exitCode": 0,
-      "durationMs": 692
+      "durationMs": 722
     },
     {
       "command": "npm run db:migrate (second official run)",
       "exitCode": 0,
-      "durationMs": 511
+      "durationMs": 537
     }
   ],
   "baseline": {
     "schemaSha256": "391242fb3f34d5df9bc35d969a9312a5c700f73a9c2b3108b167ca42a5fb1e6d",
     "sqlSha256": "c936e5697ebac3df56cc0cfdd259092b2b30f4d992dbffcb4d7d58458b984218",
     "tableCount": 129,
-    "generationDirectory": "/var/folders/bz/x8fdzc7d0qzgq__v407cc9bc0000gn/T/minaly-migration-baseline-ddq0QX"
+    "generationDirectory": "/var/folders/bz/x8fdzc7d0qzgq__v407cc9bc0000gn/T/minaly-migration-baseline-DKPxIt"
   },
   "preUpgradeHistory": {
     "rows": 72,
@@ -1111,6 +1111,6 @@
       "createdAt": 1791300307838
     }
   },
-  "completedAt": "2026-11-03T10:50:49.828Z",
-  "durationMs": 2730
+  "completedAt": "2026-11-03T11:20:42.542Z",
+  "durationMs": 2879
 }

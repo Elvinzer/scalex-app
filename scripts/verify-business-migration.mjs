@@ -139,6 +139,10 @@ try {
   check("baseline is the full pre-change schema", report.baseline.tableCount >= 120 && !baseline.includes('CREATE TABLE "businesses"'));
   await client.query(await readFile(join(root, "scripts/multi-business-test-bootstrap.sql"), "utf8"));
   await client.query(baseline);
+  if (process.env.MULTI_BUSINESS_MIGRATION_LEGACY_FK_ALIAS === "1") {
+    await client.query('ALTER TABLE public.video_attributions RENAME CONSTRAINT video_attributions_user_id_users_id_fk TO video_attributions_user_id_fkey');
+    check("historical video-attribution foreign key name reproduced", true);
+  }
   await client.query(legacySeed);
 
   const oldJournal = JSON.parse(await source("db/migrations/meta/_journal.json"));

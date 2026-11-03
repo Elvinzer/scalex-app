@@ -2,9 +2,9 @@
 
 Result: **passed**.
 
-Started: 2026-11-03T10:50:47.098Z.
+Started: 2026-11-03T11:20:39.663Z.
 Pre-change schema: `6ab432981e5d5e3638f437de5f4aef079c068ab2`.
-Disposable database retained: `minaly_multibusiness_migration_20261103_61d9f9b5` on loopback only.
+Disposable database retained: `minaly_multibusiness_migration_20261103_5be73b8d` on loopback only.
 
 Run again with `npm run test:business-migration`. Each run creates a new database; it never drops or reuses an existing one. The local PostgreSQL role must be able to create databases. An optional `--admin-url` must target the loopback postgres maintenance database.
 

@@ -132,7 +132,7 @@ youtube_reporting_reports 11 columns 2 indexes 1 fks
 youtube_video_insights 28 columns 2 indexes 1 fks
 youtube_video_snapshots 10 columns 2 indexes 1 fks
 
-[✓] Your SQL migration file ➜ /var/folders/bz/x8fdzc7d0qzgq__v407cc9bc0000gn/T/minaly-migration-baseline-ddq0QX/baseline/0000_baseline.sql 🚀
+[✓] Your SQL migration file ➜ /var/folders/bz/x8fdzc7d0qzgq__v407cc9bc0000gn/T/minaly-migration-baseline-DKPxIt/baseline/0000_baseline.sql 🚀
 
 $ npm run db:migrate (first official run)
 
@@ -141,7 +141,7 @@ $ npm run db:migrate (first official run)
 
 No config path provided, using default 'drizzle.config.ts'
 Reading config file '/Users/cedricbernard/Documents/Pro/scale x/scaleXapp/drizzle.config.ts'
-◇ injected env (23) from .env.local // tip: ⌘ override existing { override: true }
+◇ injected env (23) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
 Using 'pg' driver for database querying
 [⣷] applying migrations...[2K[1G[⣯] applying migrations...[2K[1G[✓] migrations applied successfully!Platform admin roster synchronized (1 entries).
 
@@ -152,6 +152,6 @@ $ npm run db:migrate (second official run)
 
 No config path provided, using default 'drizzle.config.ts'
 Reading config file '/Users/cedricbernard/Documents/Pro/scale x/scaleXapp/drizzle.config.ts'
-◇ injected env (23) from .env.local // tip: ⌘ override existing { override: true }
+◇ injected env (23) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
 Using 'pg' driver for database querying
 [⣷] applying migrations...[2K[1G[✓] migrations applied successfully!Platform admin roster synchronized (1 entries).
