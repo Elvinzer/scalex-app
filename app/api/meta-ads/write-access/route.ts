@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto";
-
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
@@ -9,7 +7,7 @@ import { metaAdsConnections } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { getMetaAppCredentials } from "@/lib/meta-ads/config";
 import { META_AUTHORIZE_URL, META_WRITE_SCOPES } from "@/lib/meta-ads/protocol";
-import { signMetaOAuthState } from "@/lib/meta-ads/oauth-state";
+import { createBusinessOAuthState } from "@/lib/integrations/oauth-state";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/team/context";
 
@@ -48,18 +46,18 @@ export async function GET(request: NextRequest) {
     destination.searchParams.set("meta_ads_error", "config");
     return NextResponse.redirect(destination);
   }
-  const { appId, appSecret } = credentials;
-  const state = signMetaOAuthState(randomBytes(24).toString("hex"), access.accountId, appSecret);
+  const { appId } = credentials;
+  const state = createBusinessOAuthState({ provider: "meta-ads-write", userId: claimUserId.data, businessId: access.accountId, returnTo: returnTo ?? undefined });
   const authorizeUrl = new URL(META_AUTHORIZE_URL);
   authorizeUrl.searchParams.set("client_id", appId);
   authorizeUrl.searchParams.set("redirect_uri", new URL("/api/meta-ads/callback", origin).toString());
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("scope", META_WRITE_SCOPES.join(","));
   authorizeUrl.searchParams.set("auth_type", "rerequest");
-  authorizeUrl.searchParams.set("state", state);
+  authorizeUrl.searchParams.set("state", state.nonce);
 
   const response = NextResponse.redirect(authorizeUrl);
-  response.cookies.set(STATE_COOKIE, state, {
+  response.cookies.set(STATE_COOKIE, state.cookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

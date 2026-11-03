@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -12,6 +13,7 @@ type Status = "idle" | "sending" | "sent" | "error";
 // app/auth/callback routes back here instead of /onboarding once the session
 // is established.
 export function InviteSignInForm({ email, token }: { email: string; token: string }) {
+  const t = useTranslations("billing.invite");
   const [status, setStatus] = useState<Status>("idle");
 
   async function handleMagicLink() {
@@ -39,8 +41,8 @@ export function InviteSignInForm({ email, token }: { email: string; token: strin
   if (status === "sent") {
     return (
       <div className="flex flex-col gap-2 text-center">
-        <p className="font-bold">Vérifie ta boîte mail</p>
-        <p className="text-sm text-muted-foreground">On a envoyé un lien de connexion à {email}.</p>
+        <p className="font-bold">{t("checkEmail")}</p>
+        <p className="text-sm text-muted-foreground">{t("linkSent", { email })}</p>
       </div>
     );
   }
@@ -55,7 +57,7 @@ export function InviteSignInForm({ email, token }: { email: string; token: strin
         disabled={status === "sending"}
         className="h-auto min-h-9 py-2 text-center break-words whitespace-normal"
       >
-        Continuer avec Google ({email})
+        {t("googleSignIn", { email })}
       </Button>
       <Button
         type="button"
@@ -64,10 +66,10 @@ export function InviteSignInForm({ email, token }: { email: string; token: strin
         disabled={status === "sending"}
         className="h-auto min-h-9 py-2 text-center break-words whitespace-normal"
       >
-        {status === "sending" ? "Envoi..." : `Recevoir un lien de connexion à ${email}`}
+        {status === "sending" ? t("sending") : t("sendLink", { email })}
       </Button>
       {status === "error" && (
-        <p className="text-center text-sm text-state-critical">Une erreur est survenue, réessaie.</p>
+        <p className="text-center text-sm text-state-critical">{t("signInError")}</p>
       )}
     </div>
   );

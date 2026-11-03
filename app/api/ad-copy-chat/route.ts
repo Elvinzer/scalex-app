@@ -3,7 +3,8 @@ import { getRequestLocale } from "@/lib/i18n/locale";
 import { resolveFalcoResponseLocale } from "@/lib/agent/language-instruction";
 import { z } from "zod";
 
-import { getAiProvider } from "@/lib/ai-provider";
+import { requestFalcoStream, resolveFalcoProvider } from "@/lib/agent/falco-provider";
+import { getBusinessAccountById } from "@/lib/current-user";
 import { buildAdCopyPrompt } from "@/lib/ad-copy-prompt-builder";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -65,9 +66,11 @@ export async function POST(request: NextRequest) {
 
   const systemPrompt = buildAdCopyPrompt({ businessProfile, offer, locale, responseLocale });
 
-  let provider;
+  let provider: Awaited<ReturnType<typeof resolveFalcoProvider>>;
   try {
-    provider = getAiProvider();
+    const business = await getBusinessAccountById(accountId);
+    if (!business) throw new Error("business_missing");
+    provider = await resolveFalcoProvider(business, { actorUserId: userId, operation: "ad-copy-chat" });
   } catch {
     return NextResponse.json(
       { error: "L'IA n'est pas configurée côté serveur. Préviens l'administrateur." },
@@ -77,18 +80,7 @@ export async function POST(request: NextRequest) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(provider.baseURL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${provider.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: provider.model,
-        stream: true,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-      }),
-    });
+    upstream = await requestFalcoStream(provider, systemPrompt, messages, undefined, responseLocale);
   } catch {
     return NextResponse.json(
       { error: "Impossible de joindre l'IA pour l'instant. Réessaie dans un instant." },

@@ -1,8 +1,11 @@
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { readBusinessOAuthState } from "@/lib/integrations/oauth-state";
+import { businessHref } from "@/lib/businesses/routing";
+
 import { db } from "@/db";
-import { instagramConnections, users } from "@/db/schema";
+import { instagramConnections, businesses } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { exchangeCodeForToken, exchangeForLongLivedToken, fetchProfile, InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
 import { inngest, instagramAccountConnected } from "@/lib/inngest/client";
@@ -19,8 +22,9 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
   const storedState = request.cookies.get("instagram_oauth_state")?.value;
 
-  if (!code || !state || !storedState || state !== storedState) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+  const oauthState = readBusinessOAuthState(storedState, state, "instagram");
+  if (!code || !oauthState) {
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
 
   const supabase = await createClient();
@@ -32,19 +36,20 @@ export async function GET(request: NextRequest) {
   // Same owner-only boundary as /api/instagram/connect (the route that
   // starts this flow) — defense in depth in case this callback is ever hit
   // directly.
-  const access = await requireOwner(userId);
+  if (oauthState.userId !== userId) return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
+  const access = await requireOwner(userId, { businessId: oauthState.businessId });
   if (!access) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
   if (isRateLimited(`instagram-callback:${access.accountId}`, 10)) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
 
   const clientId = requireEnv("INSTAGRAM_APP_ID");
   const clientSecret = requireEnv("INSTAGRAM_APP_SECRET");
 
   const errorRedirect = (reason: string) => {
-    const url = new URL("/acquisition/contenu", origin);
+    const url = new URL(businessHref(oauthState.businessId, "/acquisition/contenu"), origin);
     url.searchParams.set("instagram_error", reason);
     const res = NextResponse.redirect(url);
     res.cookies.delete("instagram_oauth_state");
@@ -91,7 +96,7 @@ export async function GET(request: NextRequest) {
       .returning({ id: instagramConnections.id });
     if (!connection) throw new Error("Instagram connection could not be saved");
 
-    await db.update(users).set({ instagramConnected: true }).where(eq(users.id, access.accountId));
+    await db.update(businesses).set({ instagramConnected: true }).where(eq(businesses.id, access.accountId));
 
     // Best-effort — the connection itself is already durably saved above by
     // this point. An Inngest hiccup must never turn a successful Instagram
@@ -99,19 +104,19 @@ export async function GET(request: NextRequest) {
     try {
       await inngest.send(instagramAccountConnected.create({ userId: access.accountId, connectionId: connection.id }));
     } catch (error) {
-      console.error("inngest.send(instagramAccountConnected) failed, Instagram connection saved anyway", error);
+      console.error("inngest.send(instagramAccountConnected) failed, Instagram connection saved anyway", { errorName: error instanceof Error ? error.name : "unknown" });
     }
 
     revalidateBusinessData(access.accountId);
 
-    const response = NextResponse.redirect(new URL("/acquisition/contenu", origin));
+    const response = NextResponse.redirect(new URL(businessHref(oauthState.businessId, "/acquisition/contenu"), origin));
     response.cookies.delete("instagram_oauth_state");
     return response;
   } catch (error) {
     if (error instanceof InstagramNotProfessionalAccountError) {
       return errorRedirect("not_professional");
     }
-    console.error("Instagram OAuth callback failed", error);
+    console.error("Instagram OAuth callback failed", { errorName: error instanceof Error ? error.name : "unknown" });
     return errorRedirect("unknown");
   }
 }

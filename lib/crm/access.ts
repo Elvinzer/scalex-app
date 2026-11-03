@@ -5,16 +5,17 @@ import type { PermissionKey } from "@/lib/team/permissions";
 export type CrmAccess = {
   userId: string;
   accountId: string;
+  businessName?: string;
   isOwner: boolean;
   permissions: "all" | ReadonlySet<string>;
 };
 
-export async function requireCrmAccess(userId: string, permission: PermissionKey = "crm:view"): Promise<CrmAccess | null> {
-  const context = await getAccountContext(userId);
+export async function requireCrmAccess(userId: string, permission: PermissionKey = "crm:view", businessId?: string): Promise<CrmAccess | null> {
+  const context = await getAccountContext(userId, businessId ? { businessId } : undefined);
   if (!context || !context.crmEnabled) return null;
-  if (context.isOwner) return { userId, accountId: context.accountId, isOwner: true, permissions: "all" };
+  if (context.isOwner) return { userId, accountId: context.accountId, businessName: context.businessName, isOwner: true, permissions: "all" };
   if (!context.permissions.has(permission)) return null;
-  return { userId, accountId: context.accountId, isOwner: false, permissions: context.permissions };
+  return { userId, accountId: context.accountId, businessName: context.businessName, isOwner: false, permissions: context.permissions };
 }
 
 export async function requireCrmOwner(userId: string): Promise<{ userId: string; accountId: string } | null> {

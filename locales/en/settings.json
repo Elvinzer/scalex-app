@@ -87,7 +87,7 @@
       }
     },
     "resetData": "Reset my data",
-    "resetDataHelp": "Erases your figures, diagnostic, journal and team. Your account, API key and Stripe connection stay intact. You return to onboarding as a new account.",
+    "resetDataHelp": "Erases the selected business's figures, diagnostic, journal and team. Your login, API key, Stripe connection and other businesses stay intact. This business returns to onboarding.",
     "reset": "Reset",
     "resetConfirmTitle": "Reset all your data?",
     "resetConfirmHelp": "This permanently erases your figures (Setting/Closing/Datas), diagnostic, business profile, imports, journal (projects, to-dos, notes) and team (roles, invited members).",
@@ -95,10 +95,11 @@
     "resetting": "Resetting…",
     "confirmReset": "Confirm reset",
     "deleteAccount": "Delete my account",
-    "deleteAccountHelp": "Permanent and irreversible deletion: your account, all data, Stripe connection and Minaly subscription.",
+    "deleteAccountHelp": "Contact support to close every business you own before deleting your login.",
     "deleteAccountButton": "Delete account",
     "deleteConfirmTitle": "Permanently delete your account?",
-    "deleteConfirmHelp": "Irreversible. Your Minaly subscription is cancelled, your Stripe connection revoked, and everything (figures, diagnostic, journal, team, API key) is deleted. You will no longer be able to sign in with this account.",
+    "deleteConfirmHelp": "Deleting your login is permanent. You must close every business you own first. Other businesses keep their records and activity history.",
+    "deleteOwnedBusinessBlock": "You still own a business. Contact support to close your businesses before deleting your login.",
     "typeToConfirm": "Type {email} to confirm",
     "deleting": "Deleting…",
     "deletePermanently": "Delete permanently"

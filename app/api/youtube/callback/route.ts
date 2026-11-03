@@ -1,8 +1,11 @@
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { readBusinessOAuthState } from "@/lib/integrations/oauth-state";
+import { businessHref } from "@/lib/businesses/routing";
+
 import { db } from "@/db";
-import { users, youtubeConnections } from "@/db/schema";
+import { businesses, youtubeConnections } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { exchangeCodeForTokens, fetchChannel, YoutubeChannelNotFoundError } from "@/lib/youtube/client";
 import { inngest, youtubeAccountConnected } from "@/lib/inngest/client";
@@ -19,8 +22,9 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
   const storedState = request.cookies.get("youtube_oauth_state")?.value;
 
-  if (!code || !state || !storedState || state !== storedState) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+  const oauthState = readBusinessOAuthState(storedState, state, "youtube");
+  if (!code || !oauthState) {
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
 
   const supabase = await createClient();
@@ -31,12 +35,13 @@ export async function GET(request: NextRequest) {
   const userId = data.claims.sub as string;
   // Same owner-only boundary as /api/youtube/connect (the route that starts
   // this flow) — defense in depth in case this callback is ever hit directly.
-  const access = await requireOwner(userId);
+  if (oauthState.userId !== userId) return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
+  const access = await requireOwner(userId, { businessId: oauthState.businessId });
   if (!access) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
   if (isRateLimited(`youtube-callback:${access.accountId}`, 10)) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
 
   const clientId = requireEnv("YOUTUBE_CLIENT_ID");
@@ -44,7 +49,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = new URL("/api/youtube/callback", origin).toString();
 
   const errorRedirect = (reason: string) => {
-    const url = new URL("/acquisition/contenu", origin);
+    const url = new URL(businessHref(oauthState.businessId, "/acquisition/contenu"), origin);
     url.searchParams.set("youtube_error", reason);
     const res = NextResponse.redirect(url);
     res.cookies.delete("youtube_oauth_state");
@@ -87,7 +92,7 @@ export async function GET(request: NextRequest) {
           target: youtubeConnections.userId,
           set: { ...values, connectedAt: new Date(), initialSyncCompletedAt: null },
         }),
-      db.update(users).set({ youtubeConnected: true }).where(eq(users.id, access.accountId)),
+      db.update(businesses).set({ youtubeConnected: true }).where(eq(businesses.id, access.accountId)),
     ]);
 
     // Best-effort — the connection itself is already durably saved above by
@@ -96,19 +101,19 @@ export async function GET(request: NextRequest) {
     try {
       await inngest.send(youtubeAccountConnected.create({ userId: access.accountId }));
     } catch (error) {
-      console.error("inngest.send(youtubeAccountConnected) failed, YouTube connection saved anyway", error);
+      console.error("inngest.send(youtubeAccountConnected) failed, YouTube connection saved anyway", { errorName: error instanceof Error ? error.name : "unknown" });
     }
 
     revalidateBusinessData(access.accountId);
 
-    const response = NextResponse.redirect(new URL("/acquisition/contenu", origin));
+    const response = NextResponse.redirect(new URL(businessHref(oauthState.businessId, "/acquisition/contenu"), origin));
     response.cookies.delete("youtube_oauth_state");
     return response;
   } catch (error) {
     if (error instanceof YoutubeChannelNotFoundError) {
       return errorRedirect("no_channel");
     }
-    console.error("YouTube OAuth callback failed", error);
+    console.error("YouTube OAuth callback failed", { errorName: error instanceof Error ? error.name : "unknown" });
     return errorRedirect("unknown");
   }
 }

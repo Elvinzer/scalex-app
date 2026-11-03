@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useBusinessPathname } from "@/components/businesses/business-scope";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -103,7 +103,7 @@ function FadeLayer({ children, isTop, instant }: { children: React.ReactNode; is
 // when the underlying server-side signal itself clears.
 export function FloatingChatBubble({ hasUnseenInsight = false }: { hasUnseenInsight?: boolean }) {
   const t = useTranslations("app.copilote");
-  const pathname = usePathname();
+  const pathname = useBusinessPathname();
   const isCrmRoute = pathname === "/crm" || pathname.startsWith("/crm/");
   const skin = resolveFalcoSkin(pathname);
   const [open, setOpen] = useState(false);

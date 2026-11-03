@@ -2,6 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { track } from "@/lib/analytics";
+import { businessHref } from "@/lib/businesses/routing";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
 // The Monday email's single CTA points here first (with UTM params) purely
@@ -33,5 +34,5 @@ export async function GET(request: NextRequest) {
   const destination = initiativeId.success
     ? `/diagnostic-app#insight-${initiativeId.data}`
     : "/dashboard?report=1";
-  return NextResponse.redirect(new URL(destination, origin));
+  return NextResponse.redirect(new URL(userId.success ? businessHref(userId.data, destination) : destination, origin));
 }

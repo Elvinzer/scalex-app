@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { identifyUser, track } from "@/lib/analytics";
 import { db } from "@/db";
-import { businessProfile, users } from "@/db/schema";
+import { businessProfile, businesses } from "@/db/schema";
 import { computeGlobalCompletion } from "@/lib/business/completion";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { businessProfileSectionSchemas } from "@/lib/business/schema";
@@ -71,13 +71,17 @@ export async function saveBusinessSection(
       })()
     : parsed.data;
 
-  await db
-    .insert(businessProfile)
-    .values({ userId: accountId, ...EMPTY_BUSINESS_PROFILE, [section]: persistedData })
-    .onConflictDoUpdate({
-      target: businessProfile.userId,
-      set: { [section]: persistedData, updatedAt: new Date() },
-    });
+  await db.transaction(async (tx) => {
+    await tx.insert(businessProfile)
+      .values({ userId: accountId, ...EMPTY_BUSINESS_PROFILE, [section]: persistedData })
+      .onConflictDoUpdate({ target: businessProfile.userId, set: { [section]: persistedData, updatedAt: new Date() } });
+    if (section === "identity") {
+      const identity = businessProfileSectionSchemas.identity.parse(parsed.data);
+      if (identity.businessName.trim()) {
+        await tx.update(businesses).set({ name: identity.businessName.trim(), updatedAt: new Date() }).where(eq(businesses.id, accountId));
+      }
+    }
+  });
 
   // Testimonials are now canonical rows. Keep the legacy business-profile
   // projection in sync so the Business page and diagnostic never trust a
@@ -104,19 +108,22 @@ export async function saveBusinessSection(
   // Keeps the PostHog person's niche/mrr_current in sync with reality
   // instead of a stale one-time snapshot at login — see lib/analytics.ts.
   if (section === "identity") {
-    const identity = parsed.data as { niche: string; mrrCurrent: number | null };
+    const identity = businessProfileSectionSchemas.identity.parse(parsed.data);
+    if (identity.businessName.trim()) {
+      revalidatePath("/", "layout");
+    }
     await identifyUser(userId, { niche: identity.niche, mrr_current: identity.mrrCurrent });
   }
 
   // business_profile_completed fires exactly once, the first time global
-  // completion crosses 80% — guarded by users.businessProfileCompletedAt so
+  // completion crosses 80% — guarded by businesses.businessProfileCompletedAt so
   // re-saving an already-complete profile never re-fires it.
-  const [userRow] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
+  const [userRow] = await db.select().from(businesses).where(eq(businesses.id, accountId)).limit(1);
   if (userRow && !userRow.businessProfileCompletedAt) {
     const fullProfile = await getBusinessProfile(accountId);
     const { percent } = computeGlobalCompletion(fullProfile);
     if (percent >= 80) {
-      await db.update(users).set({ businessProfileCompletedAt: new Date() }).where(eq(users.id, accountId));
+      await db.update(businesses).set({ businessProfileCompletedAt: new Date() }).where(eq(businesses.id, accountId));
       after(() => track("business_profile_completed", userId));
     }
   }

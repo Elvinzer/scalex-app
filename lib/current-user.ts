@@ -1,8 +1,13 @@
 import { eq } from "drizzle-orm";
 import { cache } from "react";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { BUSINESS_HEADER, PATHNAME_HEADER, SEARCH_HEADER, isBusinessAppPath } from "@/lib/businesses/routing";
+import { createBusiness } from "@/lib/businesses/queries";
+import { businessHref } from "@/lib/businesses/routing";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses, users } from "@/db/schema";
 import { getAuthIdentity } from "@/lib/auth/request";
 import { track } from "@/lib/analytics";
 import { withDatabaseReadRetry } from "@/lib/perf/database-retry";
@@ -10,24 +15,8 @@ import { getInFlight } from "@/lib/perf/in-flight";
 import { getAccountContext } from "@/lib/team/context";
 import { captureReferralAttribution } from "@/lib/referrals/attribution";
 
-// Shared by every (app) page: the auth guard in app/(app)/layout.tsx
-// already ensures a session exists, so this trusts the claims are present.
-//
-// `userId` is always the logged-in Supabase Auth user (who you are).
-// `accountId` is who you act on behalf of — the owner's id for a team
-// member, same as userId for an owner (today's only case, unchanged
-// behavior). `user` is the ACCOUNT's row (business context: sector, BYOK
-// key, etc.) — for a team member this is deliberately the owner's row, not
-// their own, since the business belongs to the account, not the individual.
-// Callers that write account-scoped data must use accountId, not userId;
-// callers that record "who did this" (e.g. enteredByUserId) use userId.
-// cache()-wrapped for the same reason as getAccountContext below (which
-// this already calls, itself memoized) — layout.tsx and the page it wraps
-// both call getCurrentUser() independently on every navigation; without
-// this, that's a redundant `users` row fetch every time, on every page.
-// Request-scoped row cache shared by the authenticated app chrome and the
-// page being opened. Both need the same account row before rendering useful
-// content, so keep one database read.
+// Personal identity and operational business data are deliberately separate.
+// Business views join owner contact details without creating artificial users.
 async function fetchUserById(userId: string) {
   const [user] = await withDatabaseReadRetry(
     () => db.select().from(users).where(eq(users.id, userId)).limit(1),
@@ -45,25 +34,31 @@ export const getUserById = cache(async (userId: string) => {
   ));
 });
 
-export const getCurrentUser = cache(async () => {
+export const getBusinessAccountById = cache(async (businessId: string) => {
+  const [row] = await db.select({ business: businesses, owner: users }).from(businesses)
+    .innerJoin(users, eq(businesses.ownerUserId, users.id)).where(eq(businesses.id, businessId)).limit(1);
+  if (!row) return undefined;
+  return { ...row.owner, ...row.business, email: row.owner.email, locale: row.owner.locale,
+    displayName: row.owner.displayName, avatarUrl: row.owner.avatarUrl };
+});
+
+export const getCurrentUser = cache(async (options: { allowSuspended?: boolean } = {}) => {
   const identity = await getAuthIdentity();
-  if (!identity) throw new Error("Session expirée, reconnecte-toi.");
+  if (!identity) redirect("/sign-in");
   const { userId } = identity;
-
-  const context = await getAccountContext(userId);
-  const accountId = context?.accountId ?? userId;
-
-  const user = await getUserById(accountId);
-
-  // `user` is the ACCOUNT owner's row (business data, integrations, BYOK key
-  // — all account-scoped). `currentUser` is the logged-in person's own row,
-  // which is what personal fields like displayName belong to: /settings'
-  // updateProfile writes to claims.sub, not to accountId. For an owner the
-  // two are the same row, so this costs no extra query in the common case.
-  const currentUser =
-    userId === accountId ? user : await getUserById(userId);
-
-  return { userId, accountId, user, currentUser };
+  const context = await getAccountContext(userId, { allowSuspended: true });
+  if (!context) redirect("/businesses");
+  if (!options.allowSuspended && !context.entitlement.active) {
+    redirect(context.isOwner ? businessHref(context.accountId, "/settings/facturation") : "/businesses");
+  }
+  const requestHeaders = await headers();
+  const path = requestHeaders.get(PATHNAME_HEADER);
+  if (!requestHeaders.has(BUSINESS_HEADER) && path && isBusinessAppPath(path) && !path.startsWith("/businesses")) {
+    redirect(businessHref(context.accountId, `${path}${requestHeaders.get(SEARCH_HEADER) ?? ""}`));
+  }
+  const [user, currentUser] = await Promise.all([getBusinessAccountById(context.accountId), getUserById(userId)]);
+  if (!user || !currentUser) redirect("/businesses");
+  return { userId, accountId: context.accountId, businessId: context.accountId, user, currentUser };
 });
 
 // Single source of truth for the "get the authenticated user's id or bail"
@@ -131,7 +126,8 @@ export async function ensureUserRow(
   if (isNewUser) {
     await track("signup", userId);
     if (options.captureReferral !== false) {
-      await captureReferralAttribution(userId);
+      const businessId = await createBusiness(userId, email.split("@")[0].slice(0, 100));
+      await captureReferralAttribution(businessId);
     }
   }
   return { isNewUser };

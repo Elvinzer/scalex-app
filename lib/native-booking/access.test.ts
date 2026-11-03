@@ -6,10 +6,14 @@ import { getNativeBookingViewer, viewerCloserIds } from "./access";
 import { getAccountContext } from "@/lib/team/context";
 
 const mockedGetAccountContext = vi.mocked(getAccountContext);
+const commonBusinessContext = {
+  businessId: "account-owner", businessName: "Fixture business", ownerEmail: "owner@multi-business.test",
+  onboardingCompleted: true, entitlement: { active: true, isExempt: false, reason: null },
+};
 
 describe("native booking viewer scope", () => {
   it("keeps an owner account-wide while preserving requested filters", async () => {
-    mockedGetAccountContext.mockResolvedValue({ isOwner: true, accountId: "account-owner", permissions: "all", advancedModulesEnabled: true, crmEnabled: false });
+    mockedGetAccountContext.mockResolvedValue({ ...commonBusinessContext, isOwner: true, accountId: "account-owner", permissions: "all", advancedModulesEnabled: true, crmEnabled: false });
     const viewer = await getNativeBookingViewer("account-owner");
 
     expect(viewer).toMatchObject({ userId: "account-owner", accountId: "account-owner", isAccountWide: true });
@@ -17,7 +21,7 @@ describe("native booking viewer scope", () => {
   });
 
   it("forces a delegated member to their own closer scope", async () => {
-    mockedGetAccountContext.mockResolvedValue({ isOwner: false, accountId: "account-owner", permissions: new Set(["ventes:rdv"]), advancedModulesEnabled: true, crmEnabled: false });
+    mockedGetAccountContext.mockResolvedValue({ ...commonBusinessContext, isOwner: false, accountId: "account-owner", permissions: new Set(["ventes:rdv"]), advancedModulesEnabled: true, crmEnabled: false });
     const viewer = await getNativeBookingViewer("closer-a");
 
     expect(viewer).toMatchObject({ userId: "closer-a", accountId: "account-owner", isAccountWide: false });

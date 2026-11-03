@@ -5,6 +5,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import { track } from "@/lib/analytics";
 import { getCurrentUser } from "@/lib/current-user";
+import { businessHref } from "@/lib/businesses/routing";
 import { lastCompletedMonths } from "@/lib/diagnostic/completed-months";
 import { getDiscoveryState } from "@/lib/levers/discovery";
 import { matchLocaleFromAcceptLanguage } from "@/lib/i18n/config";
@@ -26,7 +27,7 @@ export default async function OnboardingPage() {
   // auth/confirm, this route itself) lands here first, so this single
   // check is enough.
   if (user?.onboardingCompleted) {
-    redirect("/roadmap");
+    redirect(businessHref(user.id, "/roadmap"));
   }
 
   if (user) {

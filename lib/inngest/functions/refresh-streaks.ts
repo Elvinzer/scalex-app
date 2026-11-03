@@ -2,10 +2,12 @@ import { and, eq } from "drizzle-orm";
 import { cron } from "inngest";
 
 import { db } from "@/db";
-import { streaks, users } from "@/db/schema";
+import { businesses, streaks, users } from "@/db/schema";
 import { inngest } from "@/lib/inngest/client";
 import { getResendClient } from "@/lib/resend-client";
 import { refreshStreak } from "@/lib/streak/service";
+import { getBusinessEntitlement } from "@/lib/businesses/entitlements";
+import { businessHref } from "@/lib/businesses/routing";
 import { signUnsubscribeToken } from "@/lib/unsubscribe-token";
 import { getAppUrl } from "@/lib/utils";
 
@@ -27,9 +29,10 @@ export const refreshStreaks = inngest.createFunction(
   async ({ step }) => {
     const accounts = await step.run("load-accounts", async () => {
       return db
-        .select({ id: users.id, email: users.email, displayName: users.displayName })
-        .from(users)
-        .where(and(eq(users.onboardingCompleted, true), eq(users.isTestAccount, false)));
+        .select({ id: businesses.id, email: users.email, displayName: users.displayName })
+        .from(businesses)
+        .innerJoin(users, eq(users.id, businesses.ownerUserId))
+        .where(and(eq(businesses.onboardingCompleted, true), eq(businesses.isTestAccount, false)));
     });
 
     const appUrl = getAppUrl();
@@ -40,7 +43,7 @@ export const refreshStreaks = inngest.createFunction(
           const snapshot = await refreshStreak(account.id);
 
           // Opt-in, and only when there is genuinely nothing logged today.
-          if (!snapshot.reminderOptIn || snapshot.todayValidated) {
+          if (!snapshot.reminderOptIn || snapshot.todayValidated || !(await getBusinessEntitlement(account.id)).active) {
             return { userId: account.id, current: snapshot.current, reminded: false };
           }
 
@@ -62,11 +65,11 @@ export const refreshStreaks = inngest.createFunction(
               "publier un contenu, envoyer une campagne, cocher une action du Journal,",
               "remplir tes chiffres ou travailler un lead.",
               "",
-              `Ouvrir Minaly : ${appUrl}/roadmap`,
+              `Ouvrir Minaly : ${appUrl}${businessHref(account.id, "/roadmap")}`,
               "",
               `Ne plus recevoir ce rappel : ${unsubscribeUrl}`,
             ].join("\n"),
-          });
+          }, { idempotencyKey: `streak-reminder:${account.id}:${new Date().toISOString().slice(0, 10)}` });
 
           return { userId: account.id, current: snapshot.current, reminded: true };
         })

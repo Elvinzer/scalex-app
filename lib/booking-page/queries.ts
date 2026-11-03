@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { bookingPageSettings, businessProfile, users } from "@/db/schema";
+import { getBusinessAccountById } from "@/lib/current-user";
+import { bookingPageSettings, businessProfile } from "@/db/schema";
 
 import {
   DEFAULT_BOOKING_PAGE_SETTINGS,
@@ -14,9 +15,9 @@ import {
 import { createBookingAssetSignedUrl } from "./storage";
 
 async function fetchBookingPageSettingsView(accountId: string): Promise<BookingPageSettingsView> {
-  const [[settingsRow], [userRow], [profileRow]] = await Promise.all([
+  const [[settingsRow], userRow, [profileRow]] = await Promise.all([
     db.select().from(bookingPageSettings).where(eq(bookingPageSettings.userId, accountId)).limit(1),
-    db.select({ displayName: users.displayName, email: users.email }).from(users).where(eq(users.id, accountId)).limit(1),
+    getBusinessAccountById(accountId),
     db.select({ identity: businessProfile.identity }).from(businessProfile).where(eq(businessProfile.userId, accountId)).limit(1),
   ]);
 

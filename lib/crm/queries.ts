@@ -3,7 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { getCrmLocalDayBounds } from "@/lib/crm/due-date";
-import {
+import { businesses,
   crmActions,
   crmCallLinks,
   crmLeadEvents,
@@ -1453,7 +1453,7 @@ export async function recordCrmBookingLinkSent(accountId: string, leadId: string
 }
 
 export async function getCrmBookingLink(accountId: string): Promise<string | null> {
-  const [row] = await db.select({ slug: nativeBookingEvents.slug, handle: users.bookingHandle }).from(nativeBookingEvents).innerJoin(users, eq(users.id, nativeBookingEvents.userId)).where(and(eq(nativeBookingEvents.userId, accountId), eq(nativeBookingEvents.status, "active"))).orderBy(desc(nativeBookingEvents.createdAt)).limit(1);
+  const [row] = await db.select({ slug: nativeBookingEvents.slug, handle: businesses.bookingHandle }).from(nativeBookingEvents).innerJoin(businesses, eq(businesses.id, nativeBookingEvents.userId)).where(and(eq(nativeBookingEvents.userId, accountId), eq(nativeBookingEvents.status, "active"))).orderBy(desc(nativeBookingEvents.createdAt)).limit(1);
   return row?.handle ? `/book/${row.handle}/${row.slug}` : null;
 }
 

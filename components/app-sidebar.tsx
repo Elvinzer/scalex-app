@@ -24,12 +24,15 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import Link, { useLinkStatus } from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useLinkStatus } from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Fragment, useEffect, useId, useState } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { BusinessLink as Link, useBusinessPathname } from "@/components/businesses/business-scope";
+import { BusinessSwitcher } from "@/components/businesses/business-switcher";
+import type { BusinessSummary } from "@/lib/businesses/queries";
 import { PILLAR_SUBPAGES } from "@/lib/nav/pillar-subpages";
 import { signOut } from "@/lib/supabase/client";
 import { requestSupportDrawer } from "@/components/support/support-drawer";
@@ -312,7 +315,6 @@ function PillarNavGroup({
 }
 
 function ProfileMenu({
-  businessName,
   displayName,
   avatarUrl,
   email,
@@ -322,8 +324,8 @@ function ProfileMenu({
   onSignOut,
   businessCompletionCount,
   supportHasUnseenActivity,
+  restricted,
 }: {
-  businessName: string;
   displayName: string | null;
   avatarUrl: string | null;
   email: string;
@@ -333,12 +335,13 @@ function ProfileMenu({
   onSignOut: () => void;
   businessCompletionCount: number;
   supportHasUnseenActivity: boolean;
+  restricted: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const t = useTranslations("navigation");
   const supportT = useTranslations("support");
   const initial = email.charAt(0).toUpperCase() || "?";
-  const entries = profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled));
+  const entries = restricted ? [] : profileMenuEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled));
 
   return (
       <Popover open={open} onOpenChange={setOpen}>
@@ -358,7 +361,7 @@ function ProfileMenu({
             )}
             <div className="min-w-0 flex-1">
               <p className="whitespace-normal break-words text-[12.5px] font-bold tracking-[-0.005em] text-mist">
-                {displayName || businessName || t("account")}
+                {displayName || t("account")}
               </p>
               <p className="whitespace-normal break-all text-[11px] tracking-[-0.005em] text-mist/60">{email}</p>
             </div>
@@ -385,6 +388,7 @@ function ProfileMenu({
             );
           })}
 
+          {!restricted && <>
           <div className="my-1.5 h-px bg-border" />
           <button
             type="button"
@@ -404,6 +408,7 @@ function ProfileMenu({
               />
             )}
           </button>
+          </>}
 
           {/* Sign-out moved in here from a bare icon button that used to sit
               beside the trigger — a destructive action reads better as a
@@ -438,6 +443,9 @@ export type AppSidebarProps = {
   businessCompletionCount: number;
   scaleScoreSlot?: React.ReactNode;
   supportHasUnseenActivity: boolean;
+  businessId?: string | null;
+  businesses?: BusinessSummary[];
+  restricted?: boolean;
 };
 
 export function AppSidebar({
@@ -452,9 +460,12 @@ export function AppSidebar({
   businessCompletionCount,
   scaleScoreSlot,
   supportHasUnseenActivity,
+  businessId = null,
+  businesses = [],
+  restricted = false,
 }: AppSidebarProps) {
   const t = useTranslations("navigation");
-  const pathname = usePathname();
+  const pathname = useBusinessPathname();
   const router = useRouter();
   const navigationId = useId();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -469,9 +480,12 @@ export function AppSidebar({
     router.refresh();
   }
 
-  const visibleTopEntries = topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled));
-  const mobileEntries = mobileNavEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled));
+  const businessEntry: LinkEntry = { type: "link", href: "/business", labelKey: "business", icon: Store, permission: "business" };
+  const memberBusinessEntries = !isOwner && permissions.includes("business") ? [businessEntry] : [];
+  const visibleTopEntries = restricted ? [] : [...topEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled)), ...memberBusinessEntries];
+  const mobileEntries = restricted ? [] : [...mobileNavEntries.filter((entry) => isEntryVisible(entry, isOwner, permissions, crmEnabled)), ...memberBusinessEntries.map((entry) => ({ ...entry, mobileLabelKey: entry.labelKey }))];
   const mobilePageTitle = mobileEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`));
+  const mobilePageTitleKey = mobilePageTitle?.mobileLabelKey ?? profileMenuEntries.find((entry) => pathname === entry.href || pathname.startsWith(`${entry.href}/`))?.labelKey ?? "account";
 
   return (
     <>
@@ -493,7 +507,10 @@ export function AppSidebar({
 
         <div className="flex min-w-0 items-center gap-2 md:hidden">
           <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} sizes="112px" priority className="mt-5 mb-3 h-auto w-[112px] max-w-full object-contain object-left" />
-          <span className="truncate text-sm font-bold">{mobilePageTitle ? t(mobilePageTitle.mobileLabelKey) : t("logoAlt")}</span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold">{t(mobilePageTitleKey)}</p>
+            {businessName && <p className="truncate text-xs text-muted-foreground">{businessName}</p>}
+          </div>
         </div>
 
       </header>
@@ -526,6 +543,8 @@ export function AppSidebar({
             <Image src="/minaly-wordmark.png" alt={t("logoAlt")} width={1536} height={600} sizes="140px" priority className="mt-5 mb-3 h-auto w-[140px] max-w-full object-contain object-left" />
           </Link>
         </div>
+
+        <BusinessSwitcher businesses={businesses} businessId={businessId} tone="sidebar" className="mt-1" />
 
         <nav aria-label={t("primaryNavigation")} className="flex flex-col gap-1 pt-6">
           {visibleTopEntries.map((entry) => (
@@ -564,7 +583,6 @@ export function AppSidebar({
 
           <div className="mt-4 border-t border-sidebar-border pt-3">
             <ProfileMenu
-              businessName={businessName}
               displayName={displayName}
               avatarUrl={avatarUrl}
               email={email}
@@ -574,12 +592,13 @@ export function AppSidebar({
               onSignOut={handleSignOut}
               businessCompletionCount={businessCompletionCount}
               supportHasUnseenActivity={supportHasUnseenActivity}
+              restricted={restricted}
             />
           </div>
         </div>
       </aside>
 
-      <nav
+      {!restricted && <nav
         aria-label={t("mobileNavigation")}
         aria-hidden={mobileOpen}
         className={cn(
@@ -605,7 +624,7 @@ export function AppSidebar({
             </Link>
           );
         })}
-      </nav>
+      </nav>}
     </>
   );
 }

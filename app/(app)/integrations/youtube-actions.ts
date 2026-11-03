@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { users, youtubeConnections } from "@/db/schema";
+import { businesses, youtubeConnections } from "@/db/schema";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner, requirePermission } from "@/lib/team/context";
 import { YoutubeChannelNotFoundError, YoutubeTokenRevokedError } from "@/lib/youtube/client";
@@ -36,7 +36,7 @@ export async function disconnectYoutube(): Promise<{ error: string | null }> {
   // historical data — only the live link is removed, same rule as
   // disconnectInstagram/disconnectIclosed/disconnectCalendly.
   await db.delete(youtubeConnections).where(eq(youtubeConnections.userId, access.accountId));
-  await db.update(users).set({ youtubeConnected: false }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ youtubeConnected: false }).where(eq(businesses.id, access.accountId));
 
   revalidatePath("/integrations");
   revalidatePath("/acquisition/contenu");

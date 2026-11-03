@@ -2,12 +2,12 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses, users } from "@/db/schema";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
 import { getTranslations } from "next-intl/server";
 
 export const trialReminderPayloadSchema = z.object({
-  userId: z.string().min(1),
+  userId: z.string().uuid(),
   subscriptionId: z.string().min(1),
   trialEnd: z.number().int().positive(),
 });
@@ -19,8 +19,9 @@ export async function sendTrialReminderEmail(payload: Pick<TrialReminderPayload,
 
   const [user] = await db
     .select({ email: users.email, locale: users.locale })
-    .from(users)
-    .where(eq(users.id, payload.userId))
+    .from(businesses)
+    .innerJoin(users, eq(businesses.ownerUserId, users.id))
+    .where(eq(businesses.id, payload.userId))
     .limit(1);
   if (!user?.email) return false;
 

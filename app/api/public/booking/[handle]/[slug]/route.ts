@@ -4,7 +4,7 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { track } from "@/lib/analytics";
-import { nativeBookingEvents, nativeBookings, users } from "@/db/schema";
+import { businesses, nativeBookingEvents, nativeBookings, users } from "@/db/schema";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { createNativeBooking, createNativeBookingHold, scheduleNativeBookingSideEffects } from "@/lib/native-booking/booking";
 import { cancelNativeBookingByToken, getPublicNativeBookingRescheduleSlots, rescheduleNativeBookingByToken } from "@/lib/native-booking/mutations";
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const parsedIdempotencyKey = bookingIdempotencyKeySchema.safeParse(rawIdempotencyKey);
     if (!parsedIdempotencyKey.success) return jsonError("Clé de réservation invalide.", 400, "invalid_idempotency_key");
 
-    const owner = alias(users, "owner");
+    const owner = alias(businesses, "owner");
     const [booking] = await db
       .select({ booking: nativeBookings, event: nativeBookingEvents, closer: users })
       .from(nativeBookings)
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     : rescheduleHash
       ? eq(nativeBookings.rescheduleTokenHash, rescheduleHash)
       : eq(nativeBookings.cancellationTokenHash, cancellationHash ?? "");
-  const owner = alias(users, "owner");
+  const owner = alias(businesses, "owner");
   const [booking] = await db
     .select({ booking: nativeBookings, event: nativeBookingEvents, closer: users })
     .from(nativeBookings)

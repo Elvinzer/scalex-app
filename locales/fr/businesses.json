@@ -1,0 +1,56 @@
+{
+  "switcher": "Changer de business",
+  "selectBusiness": "Choisir un business",
+  "yourBusinesses": "Tes business",
+  "owner": "Propriétaire",
+  "member": "Membre",
+  "current": "Business actuel",
+  "paymentRequired": "Paiement requis",
+  "suspended": "Accès suspendu",
+  "create": "Créer un business",
+  "manage": "Voir tous mes business",
+  "unsavedChanges": "Tu as des modifications non enregistrées sur cette page. Changer de business et abandonner ces modifications ?",
+  "list": {
+    "title": "Tes business",
+    "description": "Choisis un business pour continuer. Chacun a ses propres données, intégrations et abonnement.",
+    "empty": "Tu n'as pas encore créé ou rejoint de business.",
+    "open": "Ouvrir le business",
+    "resumePayment": "Gérer le paiement"
+  },
+  "new": {
+    "title": "Créer un business",
+    "description": "Crée un business indépendant avec ses propres données, intégrations et équipe.",
+    "name": "Nom du business",
+    "namePlaceholder": "Le nom de ton business",
+    "billingNotice": "Chaque business supplémentaire nécessite son propre abonnement. Tu choisiras un forfait et verras son prix avant de payer.",
+    "adminNotice": "En tant qu'admin Minaly, tu peux créer ce business sans abonnement.",
+    "submit": "Choisir un forfait",
+    "adminSubmit": "Créer le business",
+    "pending": "Création du business...",
+    "cancel": "Revenir à mes business",
+    "invalidName": "Saisis un nom de business entre 2 et 100 caractères.",
+    "createFailed": "Impossible de créer ce business. Réessaie."
+  },
+  "blocked": {
+    "ownerTitle": "Ton business a besoin d'un abonnement actif",
+    "ownerDescription": "Règle la facture en attente ou renouvelle ton abonnement pour retrouver l'accès. Les données de ton business sont conservées.",
+    "memberTitle": "Ce business est temporairement indisponible",
+    "memberDescription": "Le propriétaire doit régulariser l'abonnement du business. Ton compte personnel et tes autres business restent accessibles.",
+    "teamUnavailableDescription": "Le forfait de ce business n'inclut pas l'accès à l'équipe. Demande au propriétaire de choisir un forfait adapté. Tes autres business restent accessibles.",
+    "contactOwner": "Contacter le propriétaire",
+    "billing": "Gérer le paiement",
+    "chooseAnother": "Choisir un autre business",
+    "signOut": "Se déconnecter",
+    "unavailableTitle": "Choisis un business pour continuer",
+    "unavailableDescription": "Tu peux ouvrir un business dont tu es membre ou en créer un indépendant."
+  },
+  "extensionAuth": {
+    "title": "Choisis un business pour Minaly CRM",
+    "description": "L’extension enregistrera les leads dans le business choisi. Tu pourras la reconnecter plus tard pour choisir un autre business.",
+    "connect": "Connecter {business}",
+    "unavailable": "L’accès CRM est indisponible pour ce business.",
+    "empty": "Tu n’as pas encore accès à un business.",
+    "back": "Revenir à mes business",
+    "invalidRequest": "Ce lien de connexion à l’extension est invalide. Ouvre l’extension et reconnecte-la."
+  }
+}

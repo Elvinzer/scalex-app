@@ -31,7 +31,7 @@ vi.mock("@/lib/import/parse", () => ({
 }));
 vi.mock("@/lib/import/aggregate", () => ({ enrichMapping: mocks.enrichMapping, groupValuesByMonth: vi.fn() }));
 vi.mock("@/db", () => ({ db: mocks.db }));
-vi.mock("@/db/schema", () => ({ monthlyMetrics: {}, users: {} }));
+vi.mock("@/db/schema", () => ({ monthlyMetrics: {}, businesses: {} }));
 vi.mock("next-intl/server", () => ({ getTranslations: vi.fn(async () => (key: string) => key) }));
 
 import { POST } from "./analyze/route";
@@ -111,7 +111,7 @@ describe("CRM import analysis provider", () => {
     expect(mocks.requireCrmAccess).toHaveBeenCalledWith("user-id", "crm:manage-pipeline");
     expect(body.keySource).toBe("shared");
     expect(body.tokens).toEqual({ inputTokens: 12, outputTokens: 8 });
-    expect(mocks.resolveFalcoProvider).toHaveBeenCalledWith(accountRow);
+    expect(mocks.resolveFalcoProvider).toHaveBeenCalledWith(accountRow, { actorUserId: "user-id", operation: "import-mapping" });
     expect(mocks.mapImportedFile).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "sheet" }),
       expect.any(String),

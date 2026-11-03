@@ -2,7 +2,7 @@ import { eq, isNull, and } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 
 // Segments de route techniques (et voisins évidents) qu'un handle ne doit jamais
@@ -79,10 +79,10 @@ function randomHandle(): string {
 async function claimHandle(userId: string, candidate: string): Promise<string | null> {
   try {
     const [updated] = await db
-      .update(users)
+      .update(businesses)
       .set({ bookingHandle: candidate })
-      .where(and(eq(users.id, userId), isNull(users.bookingHandle)))
-      .returning({ bookingHandle: users.bookingHandle });
+      .where(and(eq(businesses.id, userId), isNull(businesses.bookingHandle)))
+      .returning({ bookingHandle: businesses.bookingHandle });
     return updated?.bookingHandle ?? null;
   } catch (error) {
     // 23505 = unique_violation : le handle est pris par un autre compte.
@@ -99,18 +99,17 @@ async function claimHandle(userId: string, candidate: string): Promise<string | 
 // point qui a besoin du handle (liens e-mail, pages agenda), et pour le backfill.
 export async function ensureAccountBookingHandle(userId: string): Promise<string> {
   const [row] = await db
-    .select({ bookingHandle: users.bookingHandle, email: users.email })
-    .from(users)
-    .where(eq(users.id, userId))
+    .select({ bookingHandle: businesses.bookingHandle, name: businesses.name })
+    .from(businesses)
+    .where(eq(businesses.id, userId))
     .limit(1);
   if (!row) throw new Error(`ensureAccountBookingHandle: user introuvable (${userId})`);
   if (row.bookingHandle) return row.bookingHandle;
 
   const profile = await getBusinessProfile(userId);
-  const emailLocalPart = row.email.split("@")[0] ?? "";
   const base =
     candidateFromRaw(profile.identity.businessName) ??
-    candidateFromRaw(emailLocalPart) ??
+    candidateFromRaw(row.name) ??
     randomHandle();
 
   // On tente base, base-2, … puis on bascule sur des handles aléatoires si la
@@ -124,9 +123,9 @@ export async function ensureAccountBookingHandle(userId: string): Promise<string
     // L'update n'a rien renvoyé : soit collision d'unicité (on réessaie), soit un
     // appel concurrent a déjà posé un handle sur ce compte — dans ce cas on le lit.
     const [fresh] = await db
-      .select({ bookingHandle: users.bookingHandle })
-      .from(users)
-      .where(eq(users.id, userId))
+      .select({ bookingHandle: businesses.bookingHandle })
+      .from(businesses)
+      .where(eq(businesses.id, userId))
       .limit(1);
     if (fresh?.bookingHandle) return fresh.bookingHandle;
   }
@@ -138,9 +137,9 @@ export async function ensureAccountBookingHandle(userId: string): Promise<string
 // ensureAccountBookingHandle.
 export async function getAccountBookingHandle(userId: string): Promise<string | null> {
   const [row] = await db
-    .select({ bookingHandle: users.bookingHandle })
-    .from(users)
-    .where(eq(users.id, userId))
+    .select({ bookingHandle: businesses.bookingHandle })
+    .from(businesses)
+    .where(eq(businesses.id, userId))
     .limit(1);
   return row?.bookingHandle ?? null;
 }

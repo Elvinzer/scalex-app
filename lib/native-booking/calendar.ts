@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
+import { getBusinessEntitlement } from "@/lib/businesses/entitlements";
 import { nativeCalendarConnections, nativeCalendarProvider } from "@/db/schema";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { requireEnv } from "@/lib/utils";
@@ -438,6 +439,7 @@ export async function createExternalCalendarEvent({
   guestEmail: string | null;
   meetingUrl: string | null;
 }): Promise<ExternalCalendarEvent> {
+  if (!(await getBusinessEntitlement(connection.userId)).active) throw new Error("business_suspended");
   if (isCalendarTestMode()) {
     if (isTestFailure(connection)) throw new Error("Calendar fixture create failed");
     const id = `fixture-${idempotencyKey.replace(/[^a-z0-9]/gi, "").toLowerCase()}`;
@@ -514,6 +516,7 @@ export async function createExternalCalendarEvent({
 }
 
 export async function cancelExternalCalendarEvent(connection: CalendarConnection, externalEventId: string, calendarId?: string | null): Promise<void> {
+  if (!(await getBusinessEntitlement(connection.userId)).active) throw new Error("business_suspended");
   if (isCalendarTestMode()) {
     if (isTestFailure(connection)) throw new Error("Calendar fixture cancellation failed");
     testExternalEvents.delete(externalEventId);
@@ -550,6 +553,7 @@ export async function updateExternalCalendarEvent({
   guestEmail: string | null;
   meetingUrl: string | null;
 }): Promise<ExternalCalendarEvent> {
+  if (!(await getBusinessEntitlement(connection.userId)).active) throw new Error("business_suspended");
   if (isCalendarTestMode()) {
     if (isTestFailure(connection)) throw new Error("Calendar fixture update failed");
     const existing = testExternalEvents.get(externalEventId);

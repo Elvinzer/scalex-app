@@ -34,9 +34,12 @@ export function createCrmExtensionSession(userId: string, accountId: string, now
 }
 
 export function verifyCrmExtensionSession(token: string, now = Date.now()): { userId: string; accountId: string } | null {
+  if (token.length > 4096) return null;
   const signingSecret = secret();
   if (!signingSecret) return null;
-  const [payload, providedSignature] = token.split(".");
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [payload, providedSignature] = parts;
   if (!payload || !providedSignature) return null;
   const expectedSignature = signature(payload, signingSecret);
   const providedBuffer = Buffer.from(providedSignature);
@@ -57,7 +60,7 @@ export async function getCrmExtensionAccess(request: NextRequest): Promise<CrmAc
   if (token) {
     const session = verifyCrmExtensionSession(token);
     if (!session) return null;
-    const access = await requireCrmAccess(session.userId);
+    const access = await requireCrmAccess(session.userId, "crm:view", session.accountId);
     return access?.accountId === session.accountId ? access : null;
   }
   const identity = await getAuthIdentity();

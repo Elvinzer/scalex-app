@@ -4,11 +4,12 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 
 import { saveBusinessSection } from "@/app/(app)/business/actions";
 import { saveMonthlyMetrics } from "@/app/(app)/datas/actions";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { getBusinessProfile } from "@/lib/business/queries";
 import type { Offer, SaleMode } from "@/lib/business/types";
@@ -17,7 +18,9 @@ import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths, monthWindowFor } from "@/lib/diagnostic/completed-months";
 import { computeOnboardingGoulot, type OnboardingGoulotResult } from "@/lib/diagnostic/onboarding-goulot";
 import { getDiagnosticKpiRawData } from "@/lib/diagnostic/request-cache";
-import { requireUserIdOrError as requireUserId } from "@/lib/current-user";
+import { requireUserIdOrError } from "@/lib/current-user";
+import { businessHref } from "@/lib/businesses/routing";
+import { requireOwner } from "@/lib/team/context";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { isAcquisitionFunnelKey } from "@/lib/acquisition-funnels/types";
@@ -29,6 +32,19 @@ const onboardingBlocksSchema = z.object({
   blocks: z.array(z.object({ blockKey: z.string().min(1).max(100), order: z.number().int().min(1).max(20) })).min(2).max(11),
   sources: z.array(z.enum(["organique", "ads", "newsletter", "bouche_a_oreille", "communaute_externe"])).min(1).max(5),
 });
+
+// Onboarding writes the selected business, while authentication still identifies
+// the individual. Invitation-only identities cannot run owner onboarding.
+async function requireOnboardingBusiness(): Promise<string | { error: string }> {
+  const actorId = await requireUserIdOrError();
+  if (typeof actorId !== "string") return actorId;
+  const access = await requireOwner(actorId);
+  if (!access) {
+    const t = await getTranslations("billing");
+    return { error: t("errors.forbidden") };
+  }
+  return access.accountId;
+}
 
 // The manual-entry form (screen 2's "Saisir à la main" path) still asks for
 // one specific month — lastCompletedMonths(1) is that window. The import
@@ -45,7 +61,7 @@ export async function saveOnboardingOffer(data: {
   price: number;
   saleMode: SaleMode;
 }): Promise<{ error: string | null }> {
-  const userId = await requireUserId();
+  const userId = await requireOnboardingBusiness();
   if (typeof userId !== "string") return userId;
 
   const profile = await getBusinessProfile(userId);
@@ -74,7 +90,7 @@ export async function saveOnboardingOffer(data: {
 }
 
 export async function saveOnboardingFunnels(data: { funnels: string[]; primaryFunnel: string }): Promise<{ error: string | null }> {
-  const userId = await requireUserId();
+  const userId = await requireOnboardingBusiness();
   if (typeof userId !== "string") return userId;
   const funnels = Array.from(new Set(data.funnels.filter(isAcquisitionFunnelKey)));
   const primaryFunnel = isAcquisitionFunnelKey(data.primaryFunnel) && funnels.includes(data.primaryFunnel) ? data.primaryFunnel : funnels[0] ?? "lead_magnet";
@@ -96,7 +112,7 @@ export async function saveOnboardingFunnels(data: { funnels: string[]; primaryFu
 }
 
 export async function saveOnboardingBlocks(data: unknown): Promise<{ error: string | null }> {
-  const userId = await requireUserId();
+  const userId = await requireOnboardingBusiness();
   if (typeof userId !== "string") return userId;
   const parsed = onboardingBlocksSchema.safeParse(data);
   if (!parsed.success) return { error: "Ton parcours d'acquisition est invalide." };
@@ -128,7 +144,7 @@ export async function saveOnboardingBlocks(data: unknown): Promise<{ error: stri
 // user just gave us, and computeOnboardingGoulot doesn't care how many
 // months it's fed.
 async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingGoulotResult }> {
-  const [userRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const [userRow] = await db.select().from(businesses).where(eq(businesses.id, userId)).limit(1);
   const businessProfile = await getBusinessProfile(userId);
   const [acquisitionCatalog, blockCatalog] = await Promise.all([
     getAcquisitionFunnelCatalog(),
@@ -173,7 +189,7 @@ async function finalizeOnboarding(userId: string): Promise<{ result: OnboardingG
     await track("activation_reached", userId, { minutes_since_signup: minutesSinceSignup, metric_key: result.point.key });
   }
 
-  await db.update(users).set({ onboardingCompleted: true }).where(eq(users.id, userId));
+  await db.update(businesses).set({ onboardingCompleted: true }).where(eq(businesses.id, userId));
   revalidatePath("/dashboard");
   revalidatePath("/roadmap");
   revalidatePath("/diagnostic-app");
@@ -187,7 +203,7 @@ export async function saveOnboardingMonth(
   month: number,
   data: unknown
 ): Promise<{ error: string | null; result?: OnboardingGoulotResult }> {
-  const userId = await requireUserId();
+  const userId = await requireOnboardingBusiness();
   if (typeof userId !== "string") return userId;
 
   const monthResult = await saveMonthlyMetrics(year, month, data);
@@ -204,7 +220,7 @@ export async function saveOnboardingMonth(
 // import-flow.tsx) — this only computes the diagnosis and closes out
 // onboarding, it never writes monthly_metrics itself.
 export async function completeOnboardingAfterImport(): Promise<{ error: string | null; result?: OnboardingGoulotResult }> {
-  const userId = await requireUserId();
+  const userId = await requireOnboardingBusiness();
   if (typeof userId !== "string") return userId;
 
   await track("onboarding_step_completed", userId, { step: 3 });
@@ -213,10 +229,10 @@ export async function completeOnboardingAfterImport(): Promise<{ error: string |
 }
 
 export async function skipOnboarding(): Promise<void> {
-  const userId = await requireUserId();
+  const userId = await requireOnboardingBusiness();
   if (typeof userId === "string") {
-    await db.update(users).set({ onboardingCompleted: true }).where(eq(users.id, userId));
+    await db.update(businesses).set({ onboardingCompleted: true }).where(eq(businesses.id, userId));
   }
   revalidatePath("/roadmap");
-  redirect("/roadmap");
+  redirect(typeof userId === "string" ? businessHref(userId, "/roadmap") : "/businesses");
 }

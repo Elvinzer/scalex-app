@@ -1,6 +1,6 @@
-import { randomBytes } from "node:crypto";
-
 import { NextResponse, type NextRequest } from "next/server";
+
+import { createBusinessOAuthState } from "@/lib/integrations/oauth-state";
 
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -36,13 +36,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/integrations", origin));
   }
 
-  const state = randomBytes(16).toString("hex");
+  const state = createBusinessOAuthState({ provider: "youtube", userId: data.claims.sub as string, businessId: access.accountId });
   const authorizeUrl = new URL(YOUTUBE_AUTHORIZE_URL);
   authorizeUrl.searchParams.set("client_id", requireEnv("YOUTUBE_CLIENT_ID"));
   authorizeUrl.searchParams.set("redirect_uri", new URL("/api/youtube/callback", origin).toString());
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("scope", YOUTUBE_OAUTH_SCOPES.join(" "));
-  authorizeUrl.searchParams.set("state", state);
+  authorizeUrl.searchParams.set("state", state.nonce);
   // Required to receive a refresh_token — see protocol.ts's file header:
   // Google only issues one on first consent unless prompt=consent forces
   // re-issuance on every authorization, including a reconnect.
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   authorizeUrl.searchParams.set("prompt", "consent");
 
   const response = NextResponse.redirect(authorizeUrl);
-  response.cookies.set("youtube_oauth_state", state, {
+  response.cookies.set("youtube_oauth_state", state.cookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

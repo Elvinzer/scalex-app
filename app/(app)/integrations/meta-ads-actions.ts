@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { metaAdAccounts, metaAdsConnections, users } from "@/db/schema";
+import { metaAdAccounts, metaAdsConnections, businesses } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
 import { requireUserId } from "@/lib/current-user";
 import { inngest, metaAdsSyncRequested } from "@/lib/inngest/client";
@@ -126,7 +126,7 @@ export async function disconnectMetaAds(): Promise<{ error: string | null }> {
       updatedAt: new Date(),
     })
     .where(eq(metaAdsConnections.userId, access.accountId));
-  await db.update(users).set({ metaAdsConnected: false }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ metaAdsConnected: false }).where(eq(businesses.id, access.accountId));
   revalidatePath("/integrations");
   revalidatePath("/acquisition/ads");
   revalidateBusinessData(access.accountId);

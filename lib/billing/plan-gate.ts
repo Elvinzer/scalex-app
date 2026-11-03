@@ -1,19 +1,21 @@
 import { and, count, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db";
-import { nativeBookingEvents, subscriptionPlans, subscriptions, users } from "@/db/schema";
-import { isAdminEmail } from "@/lib/admin";
-
-const ACTIVE_STATUSES = new Set(["active", "trialing"]);
+import { nativeBookingEvents, subscriptionPlans, subscriptions } from "@/db/schema";
+import { getBusinessEntitlement, getBusinessMemberEntitlement } from "@/lib/businesses/entitlements";
+import { parsePlanFeatures } from "@/lib/billing/plan-schema";
 
 export type NativeBookingEntitlements = {
   enabled: boolean;
   maxEvents: number | null;
 };
 
-async function isPlatformAdmin(accountId: string): Promise<boolean> {
-  const [adminRow] = await db.select({ email: users.email }).from(users).where(eq(users.id, accountId)).limit(1);
-  return Boolean(adminRow && isAdminEmail(adminRow.email));
+async function getFeatures(accountId: string) {
+  const [row] = await db.select({ features: subscriptionPlans.features })
+    .from(subscriptions)
+    .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
+    .where(eq(subscriptions.userId, accountId)).limit(1);
+  return parsePlanFeatures(row?.features);
 }
 
 // Single point of truth for "can this account use team members" — read both
@@ -27,21 +29,7 @@ async function isPlatformAdmin(accountId: string): Promise<boolean> {
 // function entirely for admins, but /settings/equipe and
 // /settings/facturation call it directly, so the bypass is duplicated here.
 export async function hasActiveTeamSubscription(accountId: string): Promise<boolean> {
-  if (await isPlatformAdmin(accountId)) return true;
-
-  const [row] = await db
-    .select({
-      status: subscriptions.status,
-      features: subscriptionPlans.features,
-    })
-    .from(subscriptions)
-    .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
-    .where(eq(subscriptions.userId, accountId))
-    .limit(1);
-
-  if (!row || !ACTIVE_STATUSES.has(row.status)) return false;
-  const features = row.features as { teamMembersEnabled?: boolean };
-  return features.teamMembersEnabled === true;
+  return (await getBusinessMemberEntitlement(accountId)).active;
 }
 
 // "Does this account have ANY active/trialing subscription" — no feature-flag
@@ -49,29 +37,14 @@ export async function hasActiveTeamSubscription(accountId: string): Promise<bool
 // that any paid tier unlocks (the iClosed call tracking: "même le 1er palier
 // le permet"). Same admin bypass and ACTIVE_STATUSES source of truth.
 export async function hasActiveSubscription(accountId: string): Promise<boolean> {
-  if (await isPlatformAdmin(accountId)) return true;
-
-  const [row] = await db
-    .select({ status: subscriptions.status })
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, accountId))
-    .limit(1);
-
-  return Boolean(row && ACTIVE_STATUSES.has(row.status));
+  return (await getBusinessEntitlement(accountId)).active;
 }
 
 export async function getNativeBookingEntitlements(accountId: string): Promise<NativeBookingEntitlements> {
-  if (await isPlatformAdmin(accountId)) return { enabled: true, maxEvents: null };
-
-  const [row] = await db
-    .select({ status: subscriptions.status, features: subscriptionPlans.features })
-    .from(subscriptions)
-    .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
-    .where(eq(subscriptions.userId, accountId))
-    .limit(1);
-
-  if (!row || !ACTIVE_STATUSES.has(row.status)) return { enabled: false, maxEvents: 0 };
-  const features = row.features as { nativeBookingEnabled?: boolean; maxBookingEvents?: number | null };
+  const entitlement = await getBusinessEntitlement(accountId);
+  if (!entitlement.active) return { enabled: false, maxEvents: 0 };
+  if (entitlement.isExempt) return { enabled: true, maxEvents: null };
+  const features = await getFeatures(accountId);
   return {
     enabled: features.nativeBookingEnabled === true,
     maxEvents: features.maxBookingEvents ?? null,

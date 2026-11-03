@@ -1,6 +1,6 @@
-import { randomBytes } from "node:crypto";
-
 import { NextResponse, type NextRequest } from "next/server";
+
+import { createBusinessOAuthState } from "@/lib/integrations/oauth-state";
 
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/integrations?stripe_error=config", origin));
   }
 
-  const state = randomBytes(16).toString("hex");
+  const state = createBusinessOAuthState({ provider: "stripe", userId: data.claims.sub as string, businessId: access.accountId });
   const authorizeUrl = new URL("https://connect.stripe.com/oauth/authorize");
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", clientId);
@@ -52,10 +52,10 @@ export async function GET(request: NextRequest) {
     throw error;
   }
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-  authorizeUrl.searchParams.set("state", state);
+  authorizeUrl.searchParams.set("state", state.nonce);
 
   const response = NextResponse.redirect(authorizeUrl);
-  response.cookies.set("stripe_oauth_state", state, {
+  response.cookies.set("stripe_oauth_state", state.cookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

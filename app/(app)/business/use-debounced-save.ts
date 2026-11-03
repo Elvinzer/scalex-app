@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
+import { setBusinessChangePending } from "@/components/businesses/pending-changes";
+
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 // Client-side debounce in front of a Server Action — there's no server-side
@@ -13,13 +15,20 @@ export function useDebouncedSave<T>(
 ) {
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const changeKey = useRef(Symbol("business-change"));
+  const revision = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [, startTransition] = useTransition();
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  useEffect(() => () => {
+    clearTimeout(timerRef.current);
+    setBusinessChangePending(changeKey.current, false);
+  }, []);
 
   const schedule = useCallback(
     (value: T) => {
+      const currentRevision = ++revision.current;
+      setBusinessChangePending(changeKey.current, true);
       setStatus("saving");
       clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
@@ -29,6 +38,7 @@ export function useDebouncedSave<T>(
             setError(result.error);
             setStatus("error");
           } else {
+            if (revision.current === currentRevision) setBusinessChangePending(changeKey.current, false);
             setError(null);
             setStatus("saved");
           }

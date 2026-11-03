@@ -3,6 +3,7 @@ import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { nativeBookingActivities, nativeBookingEvents, nativeBookingNotifications, nativeBookings, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
+import { getBusinessEntitlement } from "@/lib/businesses/entitlements";
 import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
 import { getResendClient, isResendConfigured } from "@/lib/resend-client";
 import { getAppUrl } from "@/lib/utils";
@@ -78,7 +79,7 @@ function getPublicBookingUrl(details: NotificationBooking): string {
   return `${getAppUrl()}/book/${details.ownerHandle}/${details.event.slug}`;
 }
 
-async function sendNotificationEmail(to: string, details: NotificationBooking, kind: NativeBookingNotificationKind, audience: NotificationAudience) {
+async function sendNotificationEmail(to: string, details: NotificationBooking, kind: NativeBookingNotificationKind, audience: NotificationAudience, notificationId: string) {
   if (!isResendConfigured()) return;
   const copy = notificationCopy(kind);
   const { booking, event, closerName } = details;
@@ -116,7 +117,7 @@ async function sendNotificationEmail(to: string, details: NotificationBooking, k
           "",
           "Minaly",
         ].filter(Boolean).join("\n"),
-      }),
+      }, { idempotencyKey: `native-booking:${notificationId}:${kind}:${booking.startAt.getTime()}:${audience}` }),
       new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("Notification delivery timed out")), 15_000);
       }),
@@ -162,7 +163,7 @@ export async function scheduleNativeBookingNotification(bookingId: string, kind:
 
   try {
     const deliveryResult = await deliverNativeBookingNotification(bookingId, kind);
-    return deliveryResult === "sent" ? "sent" : "failed";
+    return deliveryResult === "sent" ? "sent" : deliveryResult === "deferred" ? "queued" : "failed";
   } catch (error) {
     await db
       .update(nativeBookingNotifications)
@@ -186,6 +187,7 @@ export async function scheduleNativeBookingNotification(bookingId: string, kind:
 export async function deliverNativeBookingNotification(bookingId: string, kind: NativeBookingNotificationKind) {
   const details = await loadNotificationBooking(bookingId);
   if (!details) return "skipped" as const;
+  if (!(await getBusinessEntitlement(details.event.userId)).active) return "deferred" as const;
 
   const shouldNotifyCloser = kind === "confirmation"
     ? details.event.notifyCloserOnBooking
@@ -241,7 +243,7 @@ export async function deliverNativeBookingNotification(bookingId: string, kind: 
       if (shouldNotifyCloser && details.closerEmail) recipients.add(`closer:${details.closerEmail}`);
       for (const recipient of recipients) {
         const [audience, address] = recipient.split(":", 2) as [NotificationAudience, string];
-        await sendNotificationEmail(address, details, kind, audience);
+        await sendNotificationEmail(address, details, kind, audience, notification.id);
       }
 
       await tx

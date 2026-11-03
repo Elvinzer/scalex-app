@@ -87,7 +87,7 @@
       }
     },
     "resetData": "Réinitialiser mes données",
-    "resetDataHelp": "Efface tes chiffres, ton diagnostic, ton journal et ton équipe. Ton compte, ta clé API et Stripe restent intacts. Tu repars sur l’onboarding, comme un nouveau compte.",
+    "resetDataHelp": "Efface les chiffres, le diagnostic, le journal et l'équipe du business sélectionné. Ton accès, ta clé API, Stripe et tes autres business restent intacts. Ce business revient à la configuration initiale.",
     "reset": "Réinitialiser",
     "resetConfirmTitle": "Réinitialiser toutes tes données ?",
     "resetConfirmHelp": "Cette action efface définitivement : tes chiffres (Setting/Closing/Datas), ton diagnostic, ton profil business, tes imports, ton journal (projets, to-do, notes) et ton équipe (rôles, membres invités).",
@@ -95,10 +95,11 @@
     "resetting": "Réinitialisation…",
     "confirmReset": "Confirmer la réinitialisation",
     "deleteAccount": "Supprimer mon compte",
-    "deleteAccountHelp": "Suppression définitive et irréversible : ton compte, toutes tes données, ta connexion Stripe et ton abonnement Minaly.",
+    "deleteAccountHelp": "Contacte le support pour fermer tous les business dont tu es propriétaire avant de supprimer ton accès personnel.",
     "deleteAccountButton": "Supprimer le compte",
     "deleteConfirmTitle": "Supprimer définitivement ton compte ?",
-    "deleteConfirmHelp": "Irréversible. Ton abonnement Minaly est annulé, ta connexion Stripe est révoquée, et absolument tout (chiffres, diagnostic, journal, équipe, clé API) est supprimé. Tu ne pourras plus te reconnecter avec ce compte.",
+    "deleteConfirmHelp": "La suppression de ton accès personnel est définitive. Tu dois d'abord fermer tous les business dont tu es propriétaire. Les autres business conservent leurs données et leur historique.",
+    "deleteOwnedBusinessBlock": "Tu es encore propriétaire d'un business. Contacte le support pour fermer tes business avant de supprimer ton accès personnel.",
     "typeToConfirm": "Tape {email} pour confirmer",
     "deleting": "Suppression…",
     "deletePermanently": "Supprimer définitivement"

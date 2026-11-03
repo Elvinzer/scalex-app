@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { metaAdsConnections, users } from "@/db/schema";
+import { metaAdsConnections, businesses } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { getMetaAppCredentials } from "@/lib/meta-ads/config";
 import {
@@ -14,7 +14,8 @@ import {
   MetaApiError,
 } from "@/lib/meta-ads/client";
 import { classifyMetaOAuthError } from "@/lib/meta-ads/oauth-errors";
-import { verifyMetaOAuthState } from "@/lib/meta-ads/oauth-state";
+import { readBusinessOAuthState } from "@/lib/integrations/oauth-state";
+import { businessHref } from "@/lib/businesses/routing";
 import { inngest, metaAdsAccountConnected } from "@/lib/inngest/client";
 import { isRateLimited } from "@/lib/rate-limit";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
@@ -60,15 +61,18 @@ export async function GET(request: NextRequest) {
   const oauthErrorDescription = request.nextUrl.searchParams.get("error_description");
   const storedState = request.cookies.get(STATE_COOKIE)?.value;
   const isWriteStepUp = request.cookies.get(MODE_COOKIE)?.value === "write";
-  const returnTo = safeReturnPath(request.cookies.get(RETURN_COOKIE)?.value);
-  if (!state || !storedState || state !== storedState) return redirectWithError(origin, "state", returnTo);
+  const oauthState = readBusinessOAuthState(storedState, state, isWriteStepUp ? "meta-ads-write" : "meta-ads");
+  const returnPath = safeReturnPath(oauthState?.returnTo);
+  const returnTo = oauthState ? businessHref(oauthState.businessId, returnPath ?? "/integrations") : null;
+  if (!oauthState) return redirectWithError(origin, "state", returnTo);
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) return NextResponse.redirect(new URL("/sign-in", origin));
   const claimUserId = z.string().uuid().safeParse(data.claims.sub);
   if (!claimUserId.success) return redirectWithError(origin, "access", returnTo);
-  const access = await requireOwner(claimUserId.data);
+  if (oauthState.userId !== claimUserId.data) return redirectWithError(origin, "access", returnTo);
+  const access = await requireOwner(claimUserId.data, { businessId: oauthState.businessId });
   if (!access || isRateLimited(`meta-ads-callback:${access.accountId}`, 10)) {
     return redirectWithError(origin, "access", returnTo);
   }
@@ -76,7 +80,6 @@ export async function GET(request: NextRequest) {
   const credentials = getMetaAppCredentials();
   if (!credentials) return redirectWithError(origin, "config", returnTo);
   const { appId, appSecret } = credentials;
-  if (!verifyMetaOAuthState(state, access.accountId, appSecret)) return redirectWithError(origin, "state", returnTo);
   if (oauthError || !code) {
     if (isWriteStepUp && oauthError === "access_denied") return redirectWriteDeclined(origin, returnTo);
     const reason = classifyMetaOAuthError({ error: oauthError, reason: oauthErrorReason, description: oauthErrorDescription });
@@ -158,14 +161,14 @@ export async function GET(request: NextRequest) {
           target: metaAdsConnections.userId,
           set: { ...values, connectedAt: new Date() },
         }),
-      db.update(users).set({ metaAdsConnected: true }).where(eq(users.id, access.accountId)),
+      db.update(businesses).set({ metaAdsConnected: true }).where(eq(businesses.id, access.accountId)),
     ]);
 
     if (!preserveSyncState) {
       try {
         await inngest.send(metaAdsAccountConnected.create({ userId: access.accountId }));
       } catch (error) {
-        console.error("inngest.send(metaAdsAccountConnected) failed, Meta connection saved anyway", error);
+        console.error("inngest.send(metaAdsAccountConnected) failed, Meta connection saved anyway", { errorName: error instanceof Error ? error.name : "unknown" });
       }
     }
 
@@ -183,7 +186,7 @@ export async function GET(request: NextRequest) {
     console.error("Meta Ads OAuth callback failed", {
       stage,
       ...metaError,
-      message: error instanceof Error ? error.message : "unknown",
+      errorName: error instanceof Error ? error.name : "unknown",
     });
     return redirectWithError(origin, stage === "token_validation" ? "token" : stage === "connection_persist" ? "server" : "oauth", returnTo);
   }

@@ -9,7 +9,7 @@ import { resolveFalcoProvider } from "@/lib/agent/falco-provider";
 import { buildDeterministicCrmMapping, mapImportedFile, type ImportMappingOptions, type MappableUnit } from "@/lib/agent/import-mapping";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { db } from "@/db";
-import { monthlyMetrics, users } from "@/db/schema";
+import { monthlyMetrics, businesses } from "@/db/schema";
 import { enrichMapping, groupValuesByMonth } from "@/lib/import/aggregate";
 import {
   ImportParseError,
@@ -147,7 +147,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Chaque fichier doit faire au maximum 10 Mo et avoir un nom valide." }, { status: 413 });
   }
 
-  const [accountRow] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
+  const [accountRow] = await db.select().from(businesses).where(eq(businesses.id, accountId)).limit(1);
   if (!accountRow) {
     return NextResponse.json({ error: "Compte introuvable." }, { status: 404 });
   }
@@ -159,7 +159,7 @@ export async function POST(request: Request): Promise<Response> {
   let keySource: "byok" | "shared";
   let businessProfile: Awaited<ReturnType<typeof getBusinessProfile>>;
   try {
-    const [resolvedProvider, resolvedProfile] = await Promise.all([resolveFalcoProvider(accountRow), getBusinessProfile(accountId)]);
+    const [resolvedProvider, resolvedProfile] = await Promise.all([resolveFalcoProvider(accountRow, { actorUserId: userId, operation: "import-mapping" }), getBusinessProfile(accountId)]);
     falcoProvider = resolvedProvider;
     keySource = resolvedProvider.kind === "anthropic" ? resolvedProvider.source : "shared";
     businessProfile = resolvedProfile;

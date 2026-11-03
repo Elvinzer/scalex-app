@@ -11,23 +11,27 @@ import { getAccountContext } from "@/lib/team/context";
 import { hasCrmPermission, requireCrmAccess } from "./access";
 
 const mockedGetAccountContext = vi.mocked(getAccountContext);
+const commonBusinessContext = {
+  businessId: "account-id", businessName: "Fixture business", ownerEmail: "owner@multi-business.test",
+  onboardingCompleted: true, entitlement: { active: true, isExempt: false, reason: null },
+};
 
 describe("CRM access guard", () => {
   it("allows an owner only when the account module is enabled", async () => {
-    mockedGetAccountContext.mockResolvedValue({ isOwner: true, accountId: "account-id", permissions: "all", advancedModulesEnabled: false, crmEnabled: true });
+    mockedGetAccountContext.mockResolvedValue({ ...commonBusinessContext, isOwner: true, accountId: "account-id", permissions: "all", advancedModulesEnabled: false, crmEnabled: true });
     expect(await requireCrmAccess("owner-id")).toMatchObject({ userId: "owner-id", accountId: "account-id", isOwner: true });
 
-    mockedGetAccountContext.mockResolvedValue({ isOwner: true, accountId: "account-id", permissions: "all", advancedModulesEnabled: false, crmEnabled: false });
+    mockedGetAccountContext.mockResolvedValue({ ...commonBusinessContext, isOwner: true, accountId: "account-id", permissions: "all", advancedModulesEnabled: false, crmEnabled: false });
     expect(await requireCrmAccess("owner-id")).toBeNull();
   });
 
   it("checks the requested permission for an enabled member", async () => {
-    mockedGetAccountContext.mockResolvedValue({ isOwner: false, accountId: "account-id", permissions: new Set(["crm:view"]), advancedModulesEnabled: false, crmEnabled: true });
+    mockedGetAccountContext.mockResolvedValue({ ...commonBusinessContext, isOwner: false, accountId: "account-id", permissions: new Set(["crm:view"]), advancedModulesEnabled: false, crmEnabled: true });
     expect(await requireCrmAccess("member-id")).toMatchObject({ userId: "member-id", isOwner: false });
     expect(await requireCrmAccess("member-id", "crm:view-team")).toBeNull();
     expect(await requireCrmAccess("member-id", "crm:manage-message-tests")).toBeNull();
 
-    mockedGetAccountContext.mockResolvedValue({ isOwner: false, accountId: "account-id", permissions: new Set(["crm:view", "crm:manage-message-tests"]), advancedModulesEnabled: false, crmEnabled: true });
+    mockedGetAccountContext.mockResolvedValue({ ...commonBusinessContext, isOwner: false, accountId: "account-id", permissions: new Set(["crm:view", "crm:manage-message-tests"]), advancedModulesEnabled: false, crmEnabled: true });
     expect(await requireCrmAccess("member-id", "crm:manage-message-tests")).toMatchObject({ userId: "member-id", isOwner: false });
   });
 

@@ -5,6 +5,8 @@ import { ensureUserRow } from "@/lib/current-user";
 import { createCrmExtensionSession } from "@/lib/crm/extension-session";
 import { readCrmExtensionAuthQuery } from "@/lib/crm/extension-auth";
 import { requireCrmAccess } from "@/lib/crm/access";
+import { businessIdSchema } from "@/lib/businesses/routing";
+import { isRateLimited } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -32,10 +34,22 @@ export async function GET(request: Request) {
   if (!identity) return signInRedirect(request, query);
 
   if (identity.email) await ensureUserRow(identity.userId, identity.email);
-  const access = await requireCrmAccess(identity.userId);
-  if (!access) return extensionRedirect(query, "crm_unavailable");
+  if (!requestUrl.searchParams.has("businessId")) {
+    const target = new URL("/extension/auth/select", request.url);
+    target.searchParams.set("redirect_uri", query.redirect_uri);
+    target.searchParams.set("state", query.state);
+    return NextResponse.redirect(target);
+  }
+  const businessId = businessIdSchema.safeParse(requestUrl.searchParams.get("businessId"));
+  if (!businessId.success || requestUrl.searchParams.getAll("businessId").length !== 1) return NextResponse.json({ error: "invalid_business" }, { status: 400 });
+  if (isRateLimited(`crm-extension-complete:${identity.userId}`, 20)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  const access = await requireCrmAccess(identity.userId, "crm:view", businessId.data);
+  if (!access || access.accountId !== businessId.data) return extensionRedirect(query, "crm_unavailable");
 
-  const token = createCrmExtensionSession(access.userId, access.accountId);
+  const token = createCrmExtensionSession(identity.userId, businessId.data);
   if (!token) return extensionRedirect(query, "extension_not_configured");
-  return extensionRedirect(query, undefined, token);
+  const response = extensionRedirect(query, undefined, token);
+  response.headers.set("Cache-Control", "no-store");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
 }

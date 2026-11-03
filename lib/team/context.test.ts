@@ -8,6 +8,11 @@ function memberContext(permissions: string[]): AccountContext {
   return {
     isOwner: false,
     accountId: "account-id",
+    businessId: "account-id",
+    businessName: "Fixture business",
+    ownerEmail: "owner@multi-business.test",
+    onboardingCompleted: true,
+    entitlement: { active: true, isExempt: false, reason: null },
     permissions: new Set(permissions),
     advancedModulesEnabled: false,
     crmEnabled: false,
@@ -18,6 +23,11 @@ function ownerContext(): AccountContext {
   return {
     isOwner: true,
     accountId: "account-id",
+    businessId: "account-id",
+    businessName: "Fixture business",
+    ownerEmail: "owner@multi-business.test",
+    onboardingCompleted: true,
+    entitlement: { active: true, isExempt: false, reason: null },
     permissions: "all",
     advancedModulesEnabled: false,
     crmEnabled: false,

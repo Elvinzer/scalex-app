@@ -101,138 +101,77 @@ export const prospectionSector = pgEnum("prospection_sector", [
 ]);
 
 export const users = pgTable("users", {
-  // Same id as auth.users — this table only carries app-specific columns,
-  // Supabase Auth remains the source of truth for identity.
-  id: uuid("id")
-    .primaryKey()
-    .references(() => authUsers.id, { onDelete: "cascade" }),
+  id: uuid("id").primaryKey().references(() => authUsers.id, { onDelete: "cascade" }),
   email: text("email").notNull().unique(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  // Shown in the sidebar's profile menu (components/app-sidebar.tsx) in place
-  // of businessName when set. Nullable — most accounts won't set one.
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   displayName: text("display_name"),
-  // Public URL from the Supabase Storage "avatars" bucket (see the SQL in
-  // the settings profile-form's implementation notes) — not our own upload
-  // endpoint, so this is just a URL string, never raw image bytes.
   avatarUrl: text("avatar_url"),
+  locale: text("locale").$type<"fr" | "en">(),
+  reduceFalcoAnimations: boolean("reduce_falco_animations").notNull().default(false),
+  themePreference: text("theme_preference").$type<"light" | "dark" | "system">().notNull().default("light"),
+  supportLastSeenAt: timestamp("support_last_seen_at", { withTimezone: true }),
+}).enableRLS();
+
+// Business identity is independent of a person's authentication identity.
+// Legacy businesses keep their former owner UUID to preserve external references.
+export const businesses = pgTable("businesses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerUserId: uuid("owner_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  name: text("name").notNull(),
+  status: text("status").$type<"pending" | "active" | "archived">().notNull().default("pending"),
+  billingExempt: boolean("billing_exempt").notNull().default(false),
+  isInitial: boolean("is_initial").notNull().default(false),
+  creationRequestId: uuid("creation_request_id").unique(),
+  checkoutSessionId: text("checkout_session_id"),
+  checkoutSessionUrl: text("checkout_session_url"),
+  checkoutSessionExpiresAt: timestamp("checkout_session_expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   anthropicApiKeyEncrypted: text("anthropic_api_key_encrypted"),
-  // True only when a previously-accepted BYOK key is now confirmed dead
-  // (Anthropic returned 401 on a real call) — cleared automatically the next
-  // time a key passes validateAnthropicKey(). See lib/agent/validate-key.ts.
   anthropicApiKeyInvalid: boolean("anthropic_api_key_invalid").notNull().default(false),
-  // Denormalized copy of stripe_connections.stripe_account_id for the active
-  // connection, kept in sync on connect/disconnect — avoids a join to check
-  // "is this user connected to Stripe". stripe_connections stays the source
-  // of truth (token, connected_at).
   stripeConnectId: text("stripe_connect_id"),
-  // Minaly's OWN Stripe customer id for this account (platform billing —
-  // see subscriptions below), created on first checkout attempt so retrying
-  // an abandoned checkout reuses the same Stripe Customer instead of
-  // minting duplicates. Distinct from stripeConnectId above (that one
-  // identifies the CLIENT's connected account, read-only).
   stripeCustomerId: text("stripe_customer_id"),
-  // Denormalized "is this account connected to iClosed" flag, kept in sync on
-  // connect/disconnect (mirrors stripeConnectId's role for Stripe). The API key
-  // itself lives in iclosed_connections — this is just the 1-column check used
-  // by /integrations and /ventes/appels to avoid a join.
   iclosedConnected: boolean("iclosed_connected").notNull().default(false),
-  // Same denormalized "is connected" flag for Calendly — the other supported
-  // call-booking tool (a user can connect either or both).
   calendlyConnected: boolean("calendly_connected").notNull().default(false),
-  // Same denormalized "is connected" flag for Instagram (content analytics,
-  // not a call-booking tool — see instagram_connections/instagram_post_insights).
   instagramConnected: boolean("instagram_connected").notNull().default(false),
-  // Same denormalized "is connected" flag for YouTube (channel analytics —
-  // see youtube_connections/youtube_video_insights).
   youtubeConnected: boolean("youtube_connected").notNull().default(false),
-  // Same denormalized "is connected" flag for Meta Ads. The encrypted token
-  // and the selected account live in meta_ads_connections.
   metaAdsConnected: boolean("meta_ads_connected").notNull().default(false),
   sector: prospectionSector("sector"),
-  // Set once the 3-screen /onboarding wizard finishes (or is skipped) —
-  // existing users are backfilled to true via migration default so they
-  // never see the flow. See app/onboarding/.
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
-  // Idempotency guard so the "business_profile_completed" analytics event
-  // (lib/analytics.ts) fires exactly once, the first time global completion
-  // crosses 80% — see lib/business/completion.ts's computeGlobalCompletion.
   businessProfileCompletedAt: timestamp("business_profile_completed_at", { withTimezone: true }),
-  // Monday weekly-brief email opt-out (lib/inngest/functions/weekly-brief-email.ts).
   weeklyEmailEnabled: boolean("weekly_email_enabled").notNull().default(true),
-  // Interface language, and the source of truth for it (lib/i18n/). The
-  // browser's Accept-Language only ever PRE-SELECTS the onboarding choice; it
-  // never decides on its own afterwards.
-  //
-  // Nullable on purpose, and that null is meaningful: it distinguishes "never
-  // chose" (every account predating this feature — served French, offered a
-  // dismissable note in Réglages, and never sent back through onboarding)
-  // from an explicit choice. A NOT NULL DEFAULT 'fr' would erase that
-  // difference on the very migration that creates the column.
-  //
-  // text + a runtime-validated union rather than a pg enum: adding a third
-  // locale then costs a constant in lib/i18n/config.ts, not a migration.
-  locale: text("locale").$type<"fr" | "en">(),
-  // Excludes founders'/QA accounts from the weekly email — set manually via
-  // DB for now, no admin UI toggle in this chantier.
   isTestAccount: boolean("is_test_account").notNull().default(false),
-  // Snapshot of the one diagnostic rate the user most recently opened the
-  // "Améliorer" chat about, so the next weekly check-in can show a
-  // before/after ("ton taux est passé de X% à Y%"). One of the 5
-  // lib/diagnostic/benchmarks.ts MetricKey values, or null if no chat opened
-  // on a specific rate yet (e.g. "general"/"followupRecovery" don't set this).
   lastImproveMetricKey: text("last_improve_metric_key"),
-  lastImproveMetricRateSnapshot: real("last_improve_metric_rate_snapshot"), // 0-1 fraction
-  // Idempotency guard for the weekly cron (lib/inngest/functions/weekly-brief-email.ts):
-  // skipped if set within the last 6 days, so a replayed function run never
-  // double-sends the Monday email.
+  lastImproveMetricRateSnapshot: real("last_improve_metric_rate_snapshot"),
   lastWeeklyBriefSentAt: timestamp("last_weekly_brief_sent_at", { withTimezone: true }),
-  // Gates the whole "Avancé" hub (Ads, Bibliothèque d'appels, Setting
-  // quotidien, Closing quotidien, Équipe) as one unit — see
-  // components/app-sidebar.tsx and app/(app)/avance/page.tsx. Deliberately
-  // ONE flag, not five: every module under Avancé shares this same door.
-  // History (do NOT "simplify" this column away thinking false-by-default
-  // was always the case): first pushed with .default(true) so every
-  // pre-existing account got grandfathered in, then the declared default
-  // below was flipped to false and pushed again — Postgres's ALTER COLUMN
-  // SET DEFAULT only changes future inserts, it never rewrites existing
-  // rows, so pre-existing accounts stayed true and every signup after that
-  // second push starts false (self-activatable from /avance).
   advancedModulesEnabled: boolean("advanced_modules_enabled").notNull().default(false),
-  // Optional CRM module. Unlike advancedModulesEnabled, this is a separate
-  // account-level switch controlled only by the company owner.
   crmEnabled: boolean("crm_enabled").notNull().default(false),
-  // Per-INDIVIDUAL preference (written via the logged-in userId, same
-  // pattern as displayName/avatarUrl above — never accountId), independent
-  // of the OS-level prefers-reduced-motion: some users want fewer Falco
-  // animations without disabling all system motion. See
-  // components/falco/falco-context.tsx's useFalcoAnimationsEnabled, which
-  // combines both signals.
-  reduceFalcoAnimations: boolean("reduce_falco_animations").notNull().default(false),
-  // Per-individual app appearance preference. "system" follows the device's
-  // light/dark schedule (which can be configured to follow sunrise/sunset by
-  // the operating system). It is separate from booking_page_settings.theme,
-  // which controls the public reservation page only.
-  themePreference: text("theme_preference")
-    .$type<"light" | "dark" | "system">()
-    .notNull()
-    .default("light"),
-  // Handle public URL-safe qui namespace les liens de réservation natifs
-  // (/book/{handle}/{slug}). Unique globalement (index partiel ci-dessous —
-  // NULL autorisés pour les comptes sans event de booking). Généré paresseusement
-  // à la création du premier event de booking et backfillé pour l'existant, voir
-  // lib/native-booking/handle.ts. Distinct de businessName (texte libre, éditable
-  // pour d'autres raisons, non URL-safe).
   bookingHandle: text("booking_handle"),
-  // Last time this individual opened the support inbox. It powers the small
-  // activity dot in the profile menu without exposing ticket data in the
-  // global app chrome.
-  supportLastSeenAt: timestamp("support_last_seen_at", { withTimezone: true }),
 }, (table) => [
-  uniqueIndex("users_booking_handle_idx")
-    .on(table.bookingHandle)
-    .where(sql`booking_handle is not null`),
+  index("businesses_owner_idx").on(table.ownerUserId),
+  uniqueIndex("businesses_booking_handle_idx").on(table.bookingHandle).where(sql`booking_handle is not null`),
+  pgPolicy("businesses_owner_or_member_read", { for: "select", to: "authenticated", using: sql`public.business_identity_member(${table.id})` }),
+]).enableRLS();
+
+// Deployment synchronizes the server-owned ADMIN_EMAILS allowlist here so
+// database policies and server entitlement checks use the same exemption roster.
+export const platformAdminEmails = pgTable("platform_admin_emails", {
+  email: text("email").primaryKey(),
+}).enableRLS();
+
+export const agentTokenUsage = pgTable("agent_token_usage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
+  actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+  keySource: text("key_source").$type<"byok" | "shared">().notNull(),
+  operation: text("operation").notNull(),
+  inputTokens: integer("input_tokens").notNull(),
+  outputTokens: integer("output_tokens").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("agent_token_usage_business_created_idx").on(table.businessId, table.createdAt),
+  check("agent_token_usage_nonnegative", sql`${table.inputTokens} >= 0 and ${table.outputTokens} >= 0`),
+  pgPolicy("agent_token_usage_account_read", { for: "select", to: "authenticated", using: nativeBookingAccountAccess(table.businessId) }),
 ]).enableRLS();
 
 export const earlyAccessSignups = pgTable("early_access_signups", {
@@ -260,7 +199,7 @@ export const stripeConnections = pgTable("stripe_connections", {
   userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => businesses.id, { onDelete: "cascade" }),
   stripeAccountId: text("stripe_account_id").notNull(),
   accessTokenEncrypted: text("access_token_encrypted").notNull(),
   refreshTokenEncrypted: text("refresh_token_encrypted"),
@@ -299,7 +238,7 @@ export const stripeTransactions = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     stripeAccountId: text("stripe_account_id").notNull(),
     stripeChargeId: text("stripe_charge_id").notNull(),
     paymentIntentId: text("payment_intent_id"),
@@ -347,7 +286,7 @@ export const stripeTransactionRefunds = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     stripeAccountId: text("stripe_account_id").notNull(),
     stripeRefundId: text("stripe_refund_id").notNull(),
     stripeChargeId: text("stripe_charge_id"),
@@ -384,7 +323,7 @@ export const stripeInsightRuns = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     snapshotVersion: text("snapshot_version").notNull().default("v1"),
     periodStart: date("period_start", { mode: "string" }),
     periodEnd: date("period_end", { mode: "string" }),
@@ -420,7 +359,7 @@ export const iclosedConnections = pgTable("iclosed_connections", {
   userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => businesses.id, { onDelete: "cascade" }),
   // The client's iClosed API key (Bearer "iclosed_..."), encrypted with
   // lib/crypto.ts — NEVER stored or returned in clear (masked "iclosed_...xxxx"
   // preview only), same BYOK rule as users.anthropicApiKeyEncrypted.
@@ -458,7 +397,7 @@ export const calendlyConnections = pgTable("calendly_connections", {
   userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => businesses.id, { onDelete: "cascade" }),
   // The client's Calendly Personal Access Token (Bearer), encrypted — NEVER
   // stored/returned in clear, same rule as iClosed/Anthropic BYOK keys.
   accessTokenEncrypted: text("access_token_encrypted").notNull(),
@@ -495,7 +434,7 @@ export const instagramConnections = pgTable("instagram_connections", {
   userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => businesses.id, { onDelete: "cascade" }),
   igUserId: text("ig_user_id").notNull(), // Instagram-scoped user id from the Graph API
   username: text("username"), // display only ("Connecté en tant que @handle")
   // Optional profile snapshot. Instagram may omit this field depending on the
@@ -525,7 +464,7 @@ export const metaAdsConnections = pgTable(
     userId: uuid("user_id")
       .notNull()
       .unique()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     metaUserId: text("meta_user_id").notNull(),
     metaUserName: text("meta_user_name"),
     accessTokenEncrypted: text("access_token_encrypted"),
@@ -560,7 +499,7 @@ export const metaAdAccounts = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     connectionId: uuid("connection_id")
       .notNull()
       .references(() => metaAdsConnections.id, { onDelete: "cascade" }),
@@ -595,7 +534,7 @@ export const metaCampaigns = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     adAccountId: uuid("ad_account_id")
       .notNull()
       .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
@@ -637,7 +576,7 @@ export const metaAdSets = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     adAccountId: uuid("ad_account_id")
       .notNull()
       .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
@@ -672,7 +611,7 @@ export const metaAds = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     adAccountId: uuid("ad_account_id")
       .notNull()
       .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
@@ -714,7 +653,7 @@ export const metaAdMetricsDaily = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     adAccountId: uuid("ad_account_id")
       .notNull()
       .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
@@ -779,7 +718,7 @@ export const metaAdMetricCorrections = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     adAccountId: uuid("ad_account_id")
       .notNull()
       .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
@@ -811,7 +750,7 @@ export const metaCampaignProfiles = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     campaignId: uuid("campaign_id")
       .notNull()
       .references(() => metaCampaigns.id, { onDelete: "cascade" }),
@@ -849,7 +788,7 @@ export const metaAdTouchpoints = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull().unique(),
     campaignExternalId: text("campaign_external_id"),
     adSetExternalId: text("ad_set_external_id"),
@@ -883,7 +822,7 @@ export const metaAdActionLogs = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     adAccountId: uuid("ad_account_id")
       .notNull()
       .references(() => metaAdAccounts.id, { onDelete: "cascade" }),
@@ -925,7 +864,7 @@ export const instagramPostInsights = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     mediaId: text("media_id").notNull(),
     mediaType: text("media_type").notNull(), // IMAGE | CAROUSEL_ALBUM | VIDEO | REELS | STORY (Graph API's own vocabulary)
     caption: text("caption"),
@@ -1098,7 +1037,7 @@ const nativeBookingEventCloserAccess = (eventId: AnyPgColumn, closerUserId: AnyP
     select 1 from public.native_booking_events as event
     where event.id = ${eventId}
       and public.native_booking_event_viewer(event.id)
-      and (event.user_id = auth.uid() or ${closerUserId} = auth.uid())
+      and (public.business_owner(event.user_id) or ${closerUserId} = auth.uid())
   )`;
 
 const nativeBookingCloserAccess = (eventId: AnyPgColumn, accountId: AnyPgColumn, closerUserId: AnyPgColumn) =>
@@ -1107,7 +1046,7 @@ const nativeBookingCloserAccess = (eventId: AnyPgColumn, accountId: AnyPgColumn,
     where event.id = ${eventId}
       and event.user_id = ${accountId}
       and public.native_booking_event_viewer(event.id)
-      and (event.user_id = auth.uid() or ${closerUserId} = auth.uid())
+      and (public.business_owner(event.user_id) or ${closerUserId} = auth.uid())
   )`;
 
 const nativeBookingNotificationAccess = (bookingId: AnyPgColumn) =>
@@ -1129,7 +1068,7 @@ const nativeBookingActivityAccess = (bookingId: AnyPgColumn) =>
   )`;
 
 const nativeCalendarViewerAccess = (accountId: AnyPgColumn, closerUserId: AnyPgColumn) =>
-  sql`public.native_booking_account_member(${accountId}) and (${accountId} = auth.uid() or ${closerUserId} = auth.uid())`;
+  sql`public.native_booking_account_member(${accountId}) and (public.business_owner(${accountId}) or ${closerUserId} = auth.uid())`;
 
 const nativeCalendarConnectionReferenceAccess = (connectionId: AnyPgColumn, accountId: AnyPgColumn, closerUserId: AnyPgColumn) =>
   sql`${nativeCalendarViewerAccess(accountId, closerUserId)} and (${connectionId} is null or exists (
@@ -1148,7 +1087,7 @@ export const bookingPageSettings = pgTable(
   {
     userId: uuid("user_id")
       .primaryKey()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     theme: text("theme").$type<"light" | "dark">().notNull().default("dark"),
     accentColor: text("accent_color").notNull().default("#e8663c"),
     backgroundType: text("background_type").$type<"none" | "preset" | "upload">().notNull().default("none"),
@@ -1183,7 +1122,7 @@ export const nativeBookingEvents = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
@@ -1335,7 +1274,7 @@ export const nativeBookingEventClosers = pgTable(
       .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
     closerUserId: uuid("closer_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     position: integer("position").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     isOff: boolean("is_off").notNull().default(false),
@@ -1360,10 +1299,10 @@ export const nativeCalendarConnections = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     closerUserId: uuid("closer_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     provider: nativeCalendarProvider("provider").notNull(),
     providerAccountSubject: text("provider_account_subject"),
     providerAccountEmail: text("provider_account_email"),
@@ -1378,6 +1317,7 @@ export const nativeCalendarConnections = pgTable(
   },
   (table) => [
     uniqueIndex("native_calendar_connections_closer_provider_subject_idx").on(
+      table.userId,
       table.closerUserId,
       table.provider,
       table.providerAccountSubject
@@ -1398,17 +1338,17 @@ export const nativeBookingCalendarSettings = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     closerUserId: uuid("closer_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     invitationConnectionId: uuid("invitation_connection_id").references(() => nativeCalendarConnections.id, { onDelete: "set null" }),
     invitationCalendarId: text("invitation_calendar_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("native_booking_calendar_settings_closer_idx").on(table.closerUserId),
+    uniqueIndex("native_booking_calendar_settings_closer_idx").on(table.userId, table.closerUserId),
     index("native_booking_calendar_settings_user_idx").on(table.userId),
     pgPolicy("native_booking_calendar_settings_account_access", {
       for: "all",
@@ -1425,10 +1365,10 @@ export const nativeBookingCalendarConflicts = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     closerUserId: uuid("closer_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     connectionId: uuid("connection_id")
       .notNull()
       .references(() => nativeCalendarConnections.id, { onDelete: "cascade" }),
@@ -1453,7 +1393,7 @@ export const nativeBookingLinks = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     eventId: uuid("event_id")
       .notNull()
       .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
@@ -1486,7 +1426,7 @@ export const nativeBookingLeads = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     eventId: uuid("event_id")
       .notNull()
       .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
@@ -1544,7 +1484,7 @@ export const nativeBookings = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     eventId: uuid("event_id")
       .notNull()
       .references(() => nativeBookingEvents.id, { onDelete: "cascade" }),
@@ -1717,7 +1657,7 @@ export const youtubeConnections = pgTable("youtube_connections", {
   userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => businesses.id, { onDelete: "cascade" }),
   channelId: text("channel_id").notNull(),
   channelTitle: text("channel_title"), // display only ("Connecté en tant que [chaîne]")
   channelThumbnailUrl: text("channel_thumbnail_url"),
@@ -1765,7 +1705,7 @@ export const youtubeVideoInsights = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     videoId: text("video_id").notNull(),
     title: text("title").notNull(),
     thumbnailUrl: text("thumbnail_url"),
@@ -1853,7 +1793,7 @@ export const youtubeVideoSnapshots = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     videoId: text("video_id").notNull(),
     capturedOn: date("captured_on", { mode: "string" }).notNull(),
     views: integer("views"),
@@ -1883,7 +1823,7 @@ export const youtubeReportingJobs = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     channelId: text("channel_id").notNull(),
     reportTypeId: text("report_type_id").notNull(),
     jobId: text("job_id").notNull(),
@@ -1918,7 +1858,7 @@ export const youtubeReportingReports = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     jobId: text("job_id").notNull(),
     reportId: text("report_id").notNull(),
     reportTypeId: text("report_type_id").notNull(),
@@ -1950,7 +1890,7 @@ export const youtubeEndScreenMetrics = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     videoId: text("video_id").notNull(),
     capturedOn: date("captured_on", { mode: "string" }).notNull(),
     elementType: text("element_type").notNull(),
@@ -1979,7 +1919,7 @@ export const youtubeCardMetrics = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     videoId: text("video_id").notNull(),
     capturedOn: date("captured_on", { mode: "string" }).notNull(),
     cardType: text("card_type").notNull(),
@@ -2013,7 +1953,7 @@ export const winningPatterns = pgTable(
   {
     userId: uuid("user_id")
       .primaryKey()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     themes: jsonb("themes").notNull().default([]).$type<YoutubePatternGroup[]>(),
     formats: jsonb("formats").notNull().default([]).$type<YoutubePatternGroup[]>(),
     titleStructures: jsonb("title_structures").notNull().default([]).$type<YoutubePatternLabel[]>(),
@@ -2041,7 +1981,7 @@ export const contentRecommendations = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     angle: text("angle").notNull(),
     rationale: text("rationale").notNull(),
@@ -2063,7 +2003,7 @@ export const diagnostics = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     category: text("category").notNull(),
     // Placeholder until the full health-scoring model exists — sync jobs
     // that only compute a dollar figure (e.g. failed payments) write 0.
@@ -2090,7 +2030,7 @@ export const settingKpiEntries = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     // Which team member actually submitted this row, when it wasn't the
     // account owner — null for owner-entered rows and for every row that
     // predates team members. Set null (not cascaded) if that member is later
@@ -2125,7 +2065,7 @@ export const closingKpiEntries = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     // Same rationale as settingKpiEntries.enteredByUserId.
     enteredByUserId: uuid("entered_by_user_id").references(() => users.id, { onDelete: "set null" }),
     date: date("date", { mode: "string" }).notNull(),
@@ -2154,7 +2094,7 @@ export const businessProfile = pgTable("business_profile", {
   userId: uuid("user_id")
     .notNull()
     .unique()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => businesses.id, { onDelete: "cascade" }),
   identity: jsonb("identity").notNull().$type<BusinessIdentity>(),
   acquisition: jsonb("acquisition").notNull().$type<BusinessAcquisition>(),
   sales: jsonb("sales").notNull().$type<BusinessSales>(),
@@ -2248,7 +2188,7 @@ export const funnelStageInsights = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     stage: funnelStageEnum("stage").notNull(),
     answers: jsonb("answers").notNull().$type<Record<string, string>>(),
     insightText: text("insight_text").notNull(),
@@ -2275,7 +2215,7 @@ export const sharedAgentUsage = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     periodMonth: text("period_month").notNull(),
     requestCount: integer("request_count").notNull().default(0),
   },
@@ -2296,7 +2236,7 @@ export const monthlyMetrics = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     year: integer("year").notNull(),
     month: integer("month").notNull(), // 1-12
     cashCollected: numeric("cash_collected", { mode: "number" }), // euros, decimals preserved
@@ -2368,7 +2308,7 @@ export const dataImports = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     fileHash: text("file_hash").notNull(),
     targetYear: integer("target_year"),
     targetMonth: integer("target_month"),
@@ -2395,8 +2335,8 @@ export const crmImports = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     accountId: uuid("account_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    actorUserId: uuid("actor_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
     fileName: text("file_name").notNull(),
     fileHash: text("file_hash").notNull(),
     importKey: text("import_key").notNull(),
@@ -2485,7 +2425,7 @@ export const contentPosts = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     platform: text("platform").notNull(),
     type: contentPostType("type").notNull(),
     title: text("title").notNull(),
@@ -2547,7 +2487,7 @@ export const setters = pgTable(
   "setters",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     email: text("email"),
     // 0-1 fraction, same convention as benchmarks.value — used as the
@@ -2596,11 +2536,11 @@ export const leads = pgTable(
   "leads",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     // Explicit account scope for CRM and delegated team access. During the
     // additive migration this is backfilled from userId, which is the owner
     // account key used by the legacy lead model.
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     email: text("email"),
@@ -2675,7 +2615,7 @@ export const crmLeadProfiles = pgTable(
   "crm_lead_profiles",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
     platform: crmLeadPlatformEnum("platform").notNull(),
     canonicalProfileUrl: text("canonical_profile_url"),
@@ -2735,7 +2675,7 @@ export const leadComments = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // author
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "restrict" }), // author
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -2754,7 +2694,7 @@ export const crmLeadEvents = pgTable(
   "crm_lead_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
     actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
     type: crmEventTypeEnum("type").notNull(),
@@ -2783,7 +2723,7 @@ export const crmLeadStageHistory = pgTable(
   "crm_lead_stage_history",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
     fromStage: crmLeadStageEnum("from_stage"),
     toStage: crmLeadStageEnum("to_stage").notNull(),
@@ -2809,7 +2749,7 @@ export const crmMessageAbTests = pgTable(
   "crm_message_ab_tests",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     createIdempotencyKey: text("create_idempotency_key").notNull(),
     channel: crmMessageAbTestChannelEnum("channel").notNull(),
@@ -2819,7 +2759,7 @@ export const crmMessageAbTests = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     pausedAt: timestamp("paused_at", { withTimezone: true }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
-    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -2844,7 +2784,7 @@ export const crmMessageAbTestAssignments = pgTable(
   "crm_message_ab_test_assignments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     testId: uuid("test_id").notNull().references(() => crmMessageAbTests.id, { onDelete: "cascade" }),
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
     variant: crmMessageAbTestVariantEnum("variant").notNull(),
@@ -2873,7 +2813,7 @@ export const crmResponsibilityHistory = pgTable(
   "crm_responsibility_history",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
     previousSetterId: uuid("previous_setter_id").references(() => setters.id, { onDelete: "set null" }),
     nextSetterId: uuid("next_setter_id").references(() => setters.id, { onDelete: "set null" }),
@@ -2896,7 +2836,7 @@ export const crmActions = pgTable(
   "crm_actions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
     category: crmActionCategoryEnum("category").notNull(),
     type: text("type").notNull(),
@@ -2941,7 +2881,7 @@ export const sales = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     clientName: text("client_name").notNull(),
     clientEmail: text("client_email"),
     sourceChannel: text("source_channel"),
@@ -3024,7 +2964,7 @@ export const videoAttributions = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     // The platform's own id (youtube_video_insights.videoId). Not a FK: a
     // video can be deleted from YouTube while the sale it generated remains
     // real, and losing the attribution would silently understate revenue.
@@ -3078,7 +3018,7 @@ export const salesCalls = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     // iClosed's own call id — unique per user so a replayed webhook / backfill
     // upserts the same row instead of duplicating (webhook idempotency).
     iclosedCallId: text("iclosed_call_id").notNull(),
@@ -3152,7 +3092,7 @@ export const crmCallMatchSuggestions = pgTable(
   "crm_call_match_suggestions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     salesCallId: uuid("sales_call_id").notNull().references(() => salesCalls.id, { onDelete: "cascade" }),
     status: text("status").notNull().$type<CrmCallMatchStatus>().default("queued"),
     confidence: text("confidence").$type<CrmCallMatchConfidence>(),
@@ -3216,7 +3156,7 @@ export const crmCallLinks = pgTable(
   "crm_call_links",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    accountId: uuid("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").notNull().references(() => businesses.id, { onDelete: "cascade" }),
     leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
     salesCallId: uuid("sales_call_id").notNull().references(() => salesCalls.id, { onDelete: "cascade" }),
     source: crmEventSourceEnum("source").notNull().default("app"),
@@ -3253,7 +3193,7 @@ export const salesCallComments = pgTable(
     // comments stay attributed to them and are the only ones they can delete.
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -3275,7 +3215,7 @@ export const closingVideos = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     salesCallId: uuid("sales_call_id").references(() => salesCalls.id, { onDelete: "set null" }),
     clientName: text("client_name").notNull(),
     callDate: date("call_date", { mode: "string" }).notNull(),
@@ -3302,7 +3242,7 @@ export const adCampaigns = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     platform: text("platform").notNull(),
     name: text("name").notNull(),
     objective: text("objective"),
@@ -3330,7 +3270,7 @@ export const emailCampaigns = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     sentAt: date("sent_at", { mode: "string" }).notNull(),
     subject: text("subject"),
@@ -3368,7 +3308,7 @@ export const leverStarterProgress = pgTable(
   {
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     leverKey: text("lever_key").notNull(),
     completedSteps: jsonb("completed_steps").notNull().default([]).$type<number[]>(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -3441,7 +3381,7 @@ export const conversations = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     topicType: conversationTopicType("topic_type").notNull(),
     topicKey: text("topic_key"), // null for "general"
@@ -3475,7 +3415,7 @@ export const agentChatMessages = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     conversationId: uuid("conversation_id")
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
@@ -3513,7 +3453,7 @@ export const teamRoles = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     accountId: uuid("account_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     name: text("name").notNull(),
     permissions: jsonb("permissions").notNull().$type<string[]>().default([]),
@@ -3536,15 +3476,15 @@ export const teamMembers = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     accountId: uuid("account_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    memberUserId: uuid("member_user_id").references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    memberUserId: uuid("member_user_id").references(() => users.id, { onDelete: "set null" }),
     email: text("email").notNull(),
     status: teamMemberStatus("status").notNull().default("invited"),
     inviteToken: text("invite_token").unique(),
     inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
     invitedByUserId: uuid("invited_by_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     invitedAt: timestamp("invited_at", { withTimezone: true }).notNull().defaultNow(),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -3601,7 +3541,7 @@ export const staffMembers = pgTable(
     userId: uuid("user_id")
       .notNull()
       .unique()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     email: text("email").notNull(),
     role: staffMemberRole("role").notNull().default("support_agent"),
     status: staffMemberStatus("status").notNull().default("invited"),
@@ -3634,10 +3574,10 @@ export const supportTickets = pgTable(
     reference: text("reference").notNull().unique(),
     accountId: uuid("account_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     submittedByUserId: uuid("submitted_by_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     type: supportTicketType("type").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull(),
@@ -3668,7 +3608,7 @@ export const supportTickets = pgTable(
       for: "select",
       to: "authenticated",
       using: sql`(
-        account_id = (select auth.uid())
+        public.business_owner(account_id)
         or submitted_by_user_id = (select auth.uid())
         or ${activeSupportStaff}
       )`,
@@ -3699,7 +3639,7 @@ export const supportTicketMessages = pgTable(
       .references(() => supportTickets.id, { onDelete: "cascade" }),
     authorUserId: uuid("author_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     staffMemberId: uuid("staff_member_id").references(() => staffMembers.id, { onDelete: "set null" }),
     visibility: supportTicketMessageVisibility("visibility").notNull().default("public"),
     body: text("body").notNull(),
@@ -3714,7 +3654,7 @@ export const supportTicketMessages = pgTable(
         (${table.visibility} = 'public' and exists (
           select 1 from public.support_tickets as ticket
           where ticket.id = ${table.ticketId}
-            and (ticket.account_id = (select auth.uid()) or ticket.submitted_by_user_id = (select auth.uid()))
+            and (public.business_owner(ticket.account_id) or ticket.submitted_by_user_id = (select auth.uid()))
         ))
         or ${activeSupportStaff}
       )`,
@@ -3744,7 +3684,7 @@ export const supportTicketEvents = pgTable(
       .references(() => supportTickets.id, { onDelete: "cascade" }),
     actorUserId: uuid("actor_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     staffMemberId: uuid("staff_member_id").references(() => staffMembers.id, { onDelete: "set null" }),
     eventType: text("event_type").notNull(),
     previousValue: jsonb("previous_value").$type<Record<string, unknown> | null>(),
@@ -3775,7 +3715,7 @@ export const supportTicketAttachments = pgTable(
       .references(() => supportTickets.id, { onDelete: "cascade" }),
     submittedByUserId: uuid("submitted_by_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "restrict" }),
     storagePath: text("storage_path").notNull(),
     mimeType: text("mime_type").notNull(),
     byteSize: integer("byte_size").notNull(),
@@ -3833,12 +3773,14 @@ export const subscriptions = pgTable(
     userId: uuid("user_id")
       .notNull()
       .unique()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     planId: uuid("plan_id")
       .notNull()
       .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
     stripeCustomerId: text("stripe_customer_id").notNull(),
     stripeSubscriptionId: text("stripe_subscription_id").unique(),
+    paymentBlockedAt: timestamp("payment_blocked_at", { withTimezone: true }),
+    latestInvoiceId: text("latest_invoice_id"),
     // Snapshot of the exact recurring Price attached to this subscription.
     // The catalog row can point to a newer Price after a plan price change;
     // admin billing must keep showing what this customer actually subscribed
@@ -3892,7 +3834,7 @@ export const referralCodes = pgTable(
     accountId: uuid("account_id")
       .notNull()
       .unique()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     code: text("code").notNull().unique(),
     commissionRateBps: integer("commission_rate_bps"),
     isActive: boolean("is_active").notNull().default(true),
@@ -3913,11 +3855,11 @@ export const referralAttributions = pgTable(
       .references(() => referralCodes.id, { onDelete: "restrict" }),
     referrerAccountId: uuid("referrer_account_id")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+      .references(() => businesses.id, { onDelete: "restrict" }),
     referredAccountId: uuid("referred_account_id")
       .notNull()
       .unique()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -3935,7 +3877,7 @@ export const referralPayouts = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     referrerAccountId: uuid("referrer_account_id")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+      .references(() => businesses.id, { onDelete: "restrict" }),
     currency: text("currency").notNull(),
     amountCents: integer("amount_cents").notNull(),
     periodStart: timestamp("period_start", { withTimezone: true }),
@@ -3960,10 +3902,10 @@ export const referralCommissions = pgTable(
       .references(() => referralAttributions.id, { onDelete: "restrict" }),
     referrerAccountId: uuid("referrer_account_id")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+      .references(() => businesses.id, { onDelete: "restrict" }),
     referredAccountId: uuid("referred_account_id")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+      .references(() => businesses.id, { onDelete: "restrict" }),
     stripeInvoiceId: text("stripe_invoice_id").notNull().unique(),
     stripeSubscriptionId: text("stripe_subscription_id").notNull(),
     currency: text("currency").notNull(),
@@ -4016,7 +3958,7 @@ export const scaleScoreHistory = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     date: date("date", { mode: "string" }).notNull(),
     score: integer("score").notNull(), // 0-100
   },
@@ -4038,7 +3980,7 @@ export const weeklyReports = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     weekStart: date("week_start", { mode: "string" }).notNull(),
     statsSnapshot: jsonb("stats_snapshot").notNull().$type<WeeklyReportStatCard[]>(),
     // null = no chiffrable bottleneck that week (e.g. everything at benchmark).
@@ -4106,7 +4048,7 @@ export const businessLevers = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     leverKey: text("lever_key").notNull(),
     status: leverStatus("status").notNull().default("not_answered"),
     stats: jsonb("stats").notNull().default({}).$type<Record<string, number | string>>(),
@@ -4166,7 +4108,7 @@ export const projects = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
     // "acquisition" | "vente" | "delivrabilite" | "autre" — plain text, same
@@ -4190,7 +4132,7 @@ export const todos = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     label: text("label").notNull(),
     dueDate: date("due_date", { mode: "string" }),
     done: boolean("done").notNull().default(false),
@@ -4212,7 +4154,7 @@ export const journalNotes = pgTable(
   {
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     date: date("date", { mode: "string" }).notNull(),
     content: text("content").notNull().default(""),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -4249,7 +4191,7 @@ export const improvementEvents = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     date: date("date", { mode: "string" }).notNull(),
     type: improvementEventType("type").notNull(),
     label: text("label").notNull(),
@@ -4311,7 +4253,7 @@ export const insightRecords = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     sourceType: insightSourceType("source_type").notNull(),
     sourceId: text("source_id").notNull(),
     fingerprint: text("fingerprint").notNull(),
@@ -4353,7 +4295,7 @@ export const improvementInitiatives = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     insightRecordId: uuid("insight_record_id")
       .notNull()
       .references(() => insightRecords.id, { onDelete: "cascade" }),
@@ -4394,7 +4336,7 @@ export const initiativeMeasurements = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     initiativeId: uuid("initiative_id")
       .notNull()
       .references(() => improvementInitiatives.id, { onDelete: "cascade" }),
@@ -4437,7 +4379,7 @@ export const initiativeWeeklyFocus = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     weekStart: date("week_start", { mode: "string" }).notNull(),
     initiativeId: uuid("initiative_id")
       .notNull()
@@ -4465,7 +4407,7 @@ export const initiativeNudges = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     initiativeId: uuid("initiative_id")
       .notNull()
       .references(() => improvementInitiatives.id, { onDelete: "cascade" }),
@@ -4518,7 +4460,7 @@ export const activityLog = pgTable(
   {
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     date: date("date", { mode: "string" }).notNull(),
     // Everything that validated the day, in source order. Never empty — a
     // row only exists for an active day (an inactive day is the absence of a
@@ -4542,7 +4484,7 @@ export const streaks = pgTable(
   {
     userId: uuid("user_id")
       .primaryKey()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     current: integer("current").notNull().default(0),
     best: integer("best").notNull().default(0),
     // Grace days consumed, and the month they belong to ("YYYY-MM"). Without
@@ -4595,7 +4537,7 @@ export const journeyColumns = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     type: clientJourneyColumnType("type").notNull().default("progression"),
     position: integer("order").notNull(),
@@ -4620,7 +4562,7 @@ export const clientJourneys = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     clientName: text("client_name").notNull(),
     saleId: uuid("sale_id").references(() => sales.id, { onDelete: "set null" }),
     // offerId points to business_profile.sales.offers, which is intentionally
@@ -4655,7 +4597,7 @@ export const clientNotes = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     clientJourneyId: uuid("client_journey_id")
       .notNull()
       .references(() => clientJourneys.id, { onDelete: "cascade" }),
@@ -4680,7 +4622,7 @@ export const clientMilestones = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     clientJourneyId: uuid("client_journey_id")
       .notNull()
       .references(() => clientJourneys.id, { onDelete: "cascade" }),
@@ -4707,7 +4649,7 @@ export const clientReminders = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     clientJourneyId: uuid("client_journey_id")
       .notNull()
       .references(() => clientJourneys.id, { onDelete: "cascade" }),
@@ -4734,7 +4676,7 @@ export const clientJourneyStageHistory = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     clientJourneyId: uuid("client_journey_id")
       .notNull()
       .references(() => clientJourneys.id, { onDelete: "cascade" }),
@@ -4761,7 +4703,7 @@ export const testimonials = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => businesses.id, { onDelete: "cascade" }),
     mediaType: testimonialMediaType("media_type").notNull(),
     // Private Supabase Storage path, never a public URL. Queries return a
     // short-lived signed URL under the same field name for the UI.

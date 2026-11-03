@@ -1,9 +1,8 @@
-import { randomBytes } from "node:crypto";
-
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getNativeBookingEntitlements } from "@/lib/billing/plan-gate";
 import { calendarAuthorizeUrl } from "@/lib/native-booking/calendar";
+import { createBusinessOAuthState } from "@/lib/integrations/oauth-state";
 import { isRateLimited } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/team/context";
@@ -29,11 +28,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
   if (!entitlements.enabled) return NextResponse.redirect(new URL("/ventes/rdv?calendar_error=plan", request.url));
 
   try {
-    const state = randomBytes(24).toString("hex");
     const redirectUri = new URL(`/api/native-calendar/${provider}/callback`, request.url).toString();
     const returnTo = request.nextUrl.searchParams.get("returnTo") === "/settings/calendars" ? "/settings/calendars" : "/ventes/rdv";
-    const response = NextResponse.redirect(calendarAuthorizeUrl(provider, redirectUri, state));
-    response.cookies.set("native_calendar_oauth_state", `${provider}:${state}:${userId}:${returnTo}`, {
+    const state = createBusinessOAuthState({ provider: `native-calendar:${provider}`, userId, businessId: access.accountId, returnTo });
+    const response = NextResponse.redirect(calendarAuthorizeUrl(provider, redirectUri, state.nonce));
+    response.cookies.set("native_calendar_oauth_state", state.cookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pro
     });
     return response;
   } catch (error) {
-    console.error("Native calendar connect not configured", error);
+    console.error("Native calendar connect not configured", { errorName: error instanceof Error ? error.name : "unknown" });
     return NextResponse.redirect(new URL(`/settings/calendars?calendar_error=not_configured&provider=${provider}`, request.url));
   }
 }

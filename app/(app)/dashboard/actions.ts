@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { saveMonthlyMetrics } from "@/app/(app)/datas/actions";
 import { db } from "@/db";
-import { improvementEvents, users } from "@/db/schema";
+import { improvementEvents, businesses } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { buildRates, labelFor } from "@/lib/diagnostic/cascade";
@@ -56,7 +56,7 @@ export async function submitWeeklyCheckin(
 
   await track("weekly_checkin_completed", userId);
 
-  const [userRow] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
+  const [userRow] = await db.select().from(businesses).where(eq(businesses.id, accountId)).limit(1);
   let feedback: CheckinFeedback = null;
 
   if (userRow?.lastImproveMetricKey && userRow.lastImproveMetricRateSnapshot !== null) {
@@ -73,7 +73,7 @@ export async function submitWeeklyCheckin(
       };
       // Rolling snapshot: next check-in compares against THIS one, not the
       // original chat-open moment.
-      await db.update(users).set({ lastImproveMetricRateSnapshot: after }).where(eq(users.id, accountId));
+      await db.update(businesses).set({ lastImproveMetricRateSnapshot: after }).where(eq(businesses.id, accountId));
 
       // Journal event — only on real improvement, captured NOW: there's no
       // history of before/after pairs (the snapshot above just rolled

@@ -1,170 +1,157 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
 import { AppSidebar, type AppSidebarProps } from "@/components/app-sidebar";
+import { BusinessScopeProvider } from "@/components/businesses/business-scope";
+import { BusinessSignOut } from "@/components/businesses/business-sign-out";
 import { LazySidebarScaleScore } from "@/components/lazy-sidebar-scale-score";
 import { PostHogInit } from "@/components/posthog-init";
 import { AppThemeProvider } from "@/components/theme/app-theme-provider";
 import { FalcoPreferencesProvider } from "@/components/falco/falco-context";
 import { FloatingChatBubble } from "@/components/floating-chat-bubble";
 import { SupportDrawer } from "@/components/support/support-drawer";
+import { Button } from "@/components/ui/button";
 import { isAdminEmail } from "@/lib/admin";
 import { FALCO_SKIN_KEYS } from "@/lib/falco-skins";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { EMPTY_BUSINESS_PROFILE } from "@/lib/business/types";
 import { computeGlobalCompletion } from "@/lib/business/completion";
+import { listUserBusinesses } from "@/lib/businesses/queries";
+import { businessHref } from "@/lib/businesses/routing";
 import { getAuthIdentity } from "@/lib/auth/request";
 import { isBusinessProfileThin } from "@/lib/business/thinness";
-import { getUserById } from "@/lib/current-user";
+import { getCurrentUser, getUserById } from "@/lib/current-user";
 import { getAccountContext } from "@/lib/team/context";
 import { getSupportUnseenActivity } from "@/lib/support/queries";
-import { PERMISSION_KEYS, type PermissionKey } from "@/lib/team/permissions";
+import { PERMISSION_KEYS } from "@/lib/team/permissions";
 import { withDatabaseReadTimeout } from "@/lib/perf/database-read";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-type SidebarBaseProps = Pick<AppSidebarProps, "email" | "isOwner" | "permissions" | "isAdmin" | "crmEnabled"> & {
-  displayName: string | null;
-};
-
 async function AppChrome({
   userId,
   accountId,
   canSeeScaleScore,
-  sidebarBaseProps,
+  sidebarProps,
   supportLastSeenAt,
 }: {
   userId: string;
   accountId: string;
   canSeeScaleScore: boolean;
-  sidebarBaseProps: SidebarBaseProps;
+  sidebarProps: AppSidebarProps;
   supportLastSeenAt: Date | null | undefined;
 }) {
-  const [businessProfile, userRow, supportHasUnseenActivity] = await Promise.all([
+  const [{ user }, businessProfile, supportHasUnseenActivity] = await Promise.all([
+    getCurrentUser(),
     withDatabaseReadTimeout(() => getBusinessProfile(accountId), { operation: "shell-business-profile", timeoutMs: 5_000 }).catch(() => {
       console.error("[app-shell] business profile unavailable");
       return EMPTY_BUSINESS_PROFILE;
     }),
-    withDatabaseReadTimeout(() => getUserById(accountId), { operation: "shell-account-user", timeoutMs: 5_000 }).catch(() => {
-      console.error("[app-shell] account user unavailable");
-      return undefined;
-    }),
     withDatabaseReadTimeout(() => getSupportUnseenActivity({
       userId,
       accountId,
-      isOwner: sidebarBaseProps.isOwner,
+      isOwner: sidebarProps.isOwner,
       lastSeenAt: supportLastSeenAt,
     }), { operation: "shell-support-activity", timeoutMs: 3_000 }).catch(() => {
       console.error("[app-shell] support activity unavailable");
       return false;
     }),
   ]);
-  const businessCompletion = computeGlobalCompletion(businessProfile);
-  const businessCompletionCount = Object.values(businessCompletion.bySection).filter((section) => section.percent < 100).length;
-  const sidebarProps = {
-    ...sidebarBaseProps,
-    businessName: businessProfile.identity.businessName,
-    displayName: userRow?.displayName ?? sidebarBaseProps.displayName,
-    avatarUrl: userRow?.avatarUrl ?? null,
-    businessCompletionCount,
-    supportHasUnseenActivity,
-  };
-  const hasUnseenInsight = !isBusinessProfileThin(businessProfile) && !userRow?.lastImproveMetricKey;
+  const completion = computeGlobalCompletion(businessProfile);
+  const businessCompletionCount = Object.values(completion.bySection).filter((section) => section.percent < 100).length;
+  const hasUnseenInsight = !isBusinessProfileThin(businessProfile) && !user?.lastImproveMetricKey;
 
   return (
     <>
-      <AppSidebar {...sidebarProps} scaleScoreSlot={canSeeScaleScore ? <LazySidebarScaleScore /> : null} />
+      <AppSidebar {...sidebarProps} businessCompletionCount={businessCompletionCount} supportHasUnseenActivity={supportHasUnseenActivity} scaleScoreSlot={canSeeScaleScore ? <LazySidebarScaleScore /> : null} />
       <FloatingChatBubble hasUnseenInsight={hasUnseenInsight} />
       <SupportDrawer />
     </>
   );
 }
 
-export default async function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const identity = await getAuthIdentity();
-  if (!identity) {
-    redirect("/sign-in");
-  }
+  if (!identity) redirect("/sign-in");
 
   const { email, userId } = identity;
-  const messagesPromise = getMessages();
-
-  const [context, currentUserRow] = await Promise.all([
-    getAccountContext(userId),
+  const pathname = (await headers()).get("x-minaly-pathname") ?? "";
+  const isBusinessManagement = pathname === "/businesses" || pathname.startsWith("/businesses/");
+  const [context, currentUser, businesses, messages, t] = await Promise.all([
+    isBusinessManagement ? Promise.resolve(null) : getAccountContext(userId, { allowSuspended: true }),
     getUserById(userId),
+    listUserBusinesses(userId),
+    getMessages(),
+    getTranslations("businesses"),
   ]);
-  if (!context) {
-    // A team member whose account's Minaly subscription lapsed — blocked
-    // immediately, not just future invites (see lib/billing/plan-gate.ts).
-    const t = await getTranslations("common.shared");
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-panel px-4 sm:px-8">
-        <div className="sticker-card max-w-md p-6 text-center sm:p-8">
-          <p className="text-lg font-bold">{t("accessSuspended")}</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {t("subscriptionInactive")}
-          </p>
-        </div>
-      </div>
-    );
-  }
-  const { accountId, isOwner } = context;
-  const permissions: readonly PermissionKey[] = isOwner ? PERMISSION_KEYS : [...context.permissions] as PermissionKey[];
-  // Independent of isOwner/team roles — the founders-only allowlist behind
-  // /admin (see lib/admin.ts). Nav visibility only; /admin/layout.tsx still
-  // does its own server-side check regardless of this.
-  const isAdmin = typeof email === "string" && isAdminEmail(email);
-  // Same sensitivity level as the Dashboard's own € hero figure — gated by
-  // the same "dashboard" permission rather than always-visible.
-  const canSeeScaleScore = isOwner || permissions.includes("dashboard");
-
-  // The page content no longer waits for the business profile and sidebar
-  // score. AppChrome loads those in its own Suspense boundary below while
-  // the requested page starts rendering immediately.
-  const sidebarBaseProps: SidebarBaseProps = {
+  const active = context?.entitlement.active === true;
+  const businessId = context?.accountId ?? null;
+  const permissions = active && context
+    ? context.isOwner ? PERMISSION_KEYS : PERMISSION_KEYS.filter((key) => context.permissions.has(key))
+    : [];
+  const sidebarProps: AppSidebarProps = {
     email: email ?? "",
-    displayName: currentUserRow?.displayName ?? null,
-    isOwner,
+    displayName: currentUser?.displayName ?? null,
+    avatarUrl: currentUser?.avatarUrl ?? null,
+    businessName: context?.businessName ?? "",
+    businessId,
+    businesses,
+    isOwner: context?.isOwner ?? false,
     permissions,
-    crmEnabled: context.crmEnabled,
-    isAdmin,
+    crmEnabled: active && context?.crmEnabled === true,
+    isAdmin: typeof email === "string" && isAdminEmail(email),
+    businessCompletionCount: 0,
+    supportHasUnseenActivity: false,
+    restricted: !active,
   };
-  const messages = await messagesPromise;
+  const canRenderBilling = context?.isOwner === true && pathname === "/settings/facturation";
+  const canRenderChildren = isBusinessManagement || active || canRenderBilling;
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <AppThemeProvider initialPreference={currentUserRow?.themePreference ?? "light"}>
-        <FalcoPreferencesProvider reduceAnimations={currentUserRow?.reduceFalcoAnimations ?? false}>
-          <PostHogInit />
-          {/* Portraits are tiny (<20 Ko each) — preloaded once globally so the
-              floating chat bubble's crossfade never waits on a first fetch,
-              wherever navigation lands first. */}
-          {FALCO_SKIN_KEYS.map((skin) => (
-            <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
-          ))}
-          <div className="flex min-h-screen bg-panel">
-            <Suspense fallback={<AppSidebar {...sidebarBaseProps} businessName="" avatarUrl={null} businessCompletionCount={0} supportHasUnseenActivity={false} />}>
-              <AppChrome userId={userId} accountId={accountId} canSeeScaleScore={canSeeScaleScore} sidebarBaseProps={sidebarBaseProps} supportLastSeenAt={currentUserRow?.supportLastSeenAt} />
-            </Suspense>
-            {/* The sidebar is fixed, so reserve its width in normal document flow
-                on desktop; mobile opens it as an overlay instead. */}
-            <div aria-hidden="true" className="w-0 shrink-0 md:w-64" />
-            <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-24 md:px-16 md:pb-10">
-              {/* Mobile keeps its compact header; desktop starts directly beside
-                  the sidebar because the empty horizontal bar is gone. */}
-              <div aria-hidden="true" className="h-[calc(6rem+env(safe-area-inset-top))] shrink-0 md:h-16" />
-              <div className="mx-auto max-w-6xl">{children}</div>
-            </main>
-          </div>
+      <AppThemeProvider initialPreference={currentUser?.themePreference ?? "light"}>
+        <FalcoPreferencesProvider reduceAnimations={currentUser?.reduceFalcoAnimations ?? false}>
+          <BusinessScopeProvider businessId={businessId}>
+            <PostHogInit />
+            {active && FALCO_SKIN_KEYS.map((skin) => (
+              <link key={skin} rel="prefetch" as="image" href={`/falco/skins/portraits/falco-portrait-${skin}.webp`} />
+            ))}
+            <div key={businessId ?? "business-management"} className="flex min-h-screen bg-panel">
+              {active && context ? (
+                <Suspense fallback={<AppSidebar {...sidebarProps} />}>
+                  <AppChrome userId={userId} accountId={context.accountId} canSeeScaleScore={context.isOwner || permissions.includes("dashboard")} sidebarProps={sidebarProps} supportLastSeenAt={currentUser?.supportLastSeenAt} />
+                </Suspense>
+              ) : <AppSidebar {...sidebarProps} />}
+              <div aria-hidden="true" className="w-0 shrink-0 md:w-64" />
+              <main className="relative z-0 min-w-0 flex-1 overflow-x-clip px-4 pb-24 md:px-16 md:pb-10">
+                <div aria-hidden="true" className="h-[calc(6rem+env(safe-area-inset-top))] shrink-0 md:h-16" />
+                <div className="mx-auto max-w-6xl">
+                  {canRenderChildren ? children : (
+                    <section className="sticker-card mx-auto max-w-xl space-y-4 p-6 sm:p-8">
+                      <h1 className="text-2xl font-bold tracking-tight">
+                        {!context ? t("blocked.unavailableTitle") : context.isOwner ? t("blocked.ownerTitle") : t("blocked.memberTitle")}
+                      </h1>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {!context ? t("blocked.unavailableDescription") : context.isOwner ? t("blocked.ownerDescription") : context.entitlement.reason === "team_unavailable" ? t("blocked.teamUnavailableDescription") : t("blocked.memberDescription")}
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        {context?.isOwner && <Button asChild><a href={businessHref(context.accountId, "/settings/facturation")}>{t("blocked.billing")}</a></Button>}
+                        {context && !context.isOwner && context.ownerEmail && <Button asChild variant="outline"><a href={`mailto:${encodeURIComponent(context.ownerEmail)}`}>{t("blocked.contactOwner")}</a></Button>}
+                        <Button asChild variant="outline"><a href="/businesses">{t("blocked.chooseAnother")}</a></Button>
+                        <BusinessSignOut />
+                      </div>
+                    </section>
+                  )}
+                </div>
+              </main>
+            </div>
+          </BusinessScopeProvider>
         </FalcoPreferencesProvider>
       </AppThemeProvider>
     </NextIntlClientProvider>

@@ -1,0 +1,56 @@
+{
+  "switcher": "Switch business",
+  "selectBusiness": "Choose a business",
+  "yourBusinesses": "Your businesses",
+  "owner": "Owner",
+  "member": "Member",
+  "current": "Current business",
+  "paymentRequired": "Payment required",
+  "suspended": "Access suspended",
+  "create": "Create a business",
+  "manage": "View all businesses",
+  "unsavedChanges": "You have unsaved changes on this page. Switch businesses and leave these changes behind?",
+  "list": {
+    "title": "Your businesses",
+    "description": "Choose a business to continue. Each has its own data, integrations and subscription.",
+    "empty": "You have not created or joined a business yet.",
+    "open": "Open business",
+    "resumePayment": "Manage payment"
+  },
+  "new": {
+    "title": "Create a business",
+    "description": "Start a separate business with its own data, integrations and team.",
+    "name": "Business name",
+    "namePlaceholder": "Your business name",
+    "billingNotice": "Each additional business needs its own subscription. You will choose a plan and review the price before paying.",
+    "adminNotice": "As a Minaly admin, you can create this business without a subscription.",
+    "submit": "Continue to plans",
+    "adminSubmit": "Create business",
+    "pending": "Creating business...",
+    "cancel": "Back to your businesses",
+    "invalidName": "Enter a business name between 2 and 100 characters.",
+    "createFailed": "We could not create this business. Try again."
+  },
+  "blocked": {
+    "ownerTitle": "Your business needs an active subscription",
+    "ownerDescription": "Pay the outstanding invoice or renew your subscription to restore access. Your business data is preserved.",
+    "memberTitle": "This business is temporarily unavailable",
+    "memberDescription": "The owner needs to update the business subscription. Your personal account and your other businesses are still available.",
+    "teamUnavailableDescription": "This business plan does not include team access. Ask the owner to choose a plan that includes the team. Your other businesses are still available.",
+    "contactOwner": "Contact the owner",
+    "billing": "Manage payment",
+    "chooseAnother": "Choose another business",
+    "signOut": "Sign out",
+    "unavailableTitle": "Choose a business to continue",
+    "unavailableDescription": "You can open a business you belong to or create a separate one."
+  },
+  "extensionAuth": {
+    "title": "Choose a business for Minaly CRM",
+    "description": "The extension will save leads in the business you choose. You can reconnect it later to choose another business.",
+    "connect": "Connect {business}",
+    "unavailable": "CRM access is unavailable for this business.",
+    "empty": "You do not have access to a business yet.",
+    "back": "Back to your businesses",
+    "invalidRequest": "This extension connection link is invalid. Open the extension and connect again."
+  }
+}

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { cron } from "inngest";
 
 import { db } from "@/db";
-import { scaleScoreHistory, users } from "@/db/schema";
+import { scaleScoreHistory, businesses } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
@@ -26,9 +26,9 @@ export const snapshotScaleScore = inngest.createFunction(
   async ({ step }) => {
     const accounts = await step.run("load-accounts", async () => {
       return db
-        .select()
-        .from(users)
-        .where(and(eq(users.onboardingCompleted, true), eq(users.isTestAccount, false)));
+        .select({ id: businesses.id, sector: businesses.sector })
+        .from(businesses)
+        .where(and(eq(businesses.onboardingCompleted, true), eq(businesses.isTestAccount, false)));
     });
 
     const today = toIsoDate(todayUtc());

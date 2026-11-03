@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { contentRecommendations, improvementEvents, users } from "@/db/schema";
+import { contentRecommendations, improvementEvents, businesses } from "@/db/schema";
 import { track } from "@/lib/analytics";
 import { chatContextSchema, type ChatContext } from "@/lib/chat-context";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
@@ -26,7 +26,7 @@ function isMetricKey(value: string): value is MetricKey {
 // improve_chat_opened event for every topic type (previously the lever
 // cards fired a separate, disconnected opportunity_chat_opened instead —
 // removed, this is the one source of truth now). Also snapshots the
-// metric's current rate onto users.lastImproveMetricKey/
+// metric's current rate onto businesses.lastImproveMetricKey/
 // lastImproveMetricRateSnapshot (only for topicType "metric" — a lever has
 // no single comparable rate, extending this to levers is a separate
 // follow-up, not part of this fix) so the next weekly check-in can show a
@@ -96,9 +96,9 @@ export async function recordImproveChatOpened(context: ChatContext, mode?: strin
   if (rate === null) return;
 
   await db
-    .update(users)
+    .update(businesses)
     .set({ lastImproveMetricKey: metricKey, lastImproveMetricRateSnapshot: rate })
-    .where(eq(users.id, userId));
+    .where(eq(businesses.id, userId));
 
   // Journal event — first time ever on this metric_key only. No history
   // table for "already discussed" exists (lastImproveMetricKey only ever

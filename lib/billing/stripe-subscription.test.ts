@@ -5,6 +5,8 @@ const { dbMock, selectResults, valuesMock, upsertMock } = vi.hoisted(() => {
   const valuesMock = vi.fn(() => ({ onConflictDoUpdate: upsertMock }));
   const upsertMock = vi.fn();
   const dbMock = {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(dbMock)),
+    execute: vi.fn(async () => undefined),
     select: vi.fn(() => ({
       from: () => ({
         where: () => ({
@@ -13,6 +15,7 @@ const { dbMock, selectResults, valuesMock, upsertMock } = vi.hoisted(() => {
       }),
     })),
     insert: vi.fn(() => ({ values: valuesMock })),
+    update: vi.fn(() => ({ set: () => ({ where: async () => undefined }) })),
   };
   return { dbMock, selectResults, valuesMock, upsertMock };
 });
@@ -126,7 +129,7 @@ describe("Stripe subscription projection parser", () => {
   });
 
   it("upserts the exact Price projection when the account and plan agree", async () => {
-    selectResults.push([], [{ id: planId }], [{ id: planId }]);
+    selectResults.push([{ id: userId, stripeCustomerId: "cus_sync" }], [], [{ id: planId }], [{ id: planId }]);
 
     const result = await syncStripeSubscriptionProjection({
       id: "sub_sync",
@@ -151,7 +154,7 @@ describe("Stripe subscription projection parser", () => {
   });
 
   it("preserves the existing projection when the Price resolves to another plan", async () => {
-    selectResults.push([], [{ id: "00000000-0000-0000-0000-000000000003" }]);
+    selectResults.push([{ id: userId, stripeCustomerId: "cus_conflict" }], [], [{ id: "00000000-0000-0000-0000-000000000003" }]);
 
     const result = await syncStripeSubscriptionProjection({
       id: "sub_plan_conflict",
@@ -167,7 +170,7 @@ describe("Stripe subscription projection parser", () => {
     expect(result).toEqual({
       ok: false,
       code: "conflict",
-      error: "Le Price Stripe ne correspond pas au plan déclaré par cet abonnement.",
+      error: "Subscription price does not match its plan.",
     });
     expect(valuesMock).not.toHaveBeenCalled();
     expect(upsertMock).not.toHaveBeenCalled();
@@ -185,5 +188,85 @@ describe("Stripe subscription projection parser", () => {
 
     expect(result).toMatchObject({ ok: false, code: "mismatch" });
     expect(valuesMock).not.toHaveBeenCalled();
+  });
+});
+
+function subscription(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "sub_current", customer: "cus_current", status: "active", cancel_at_period_end: false,
+    current_period_end: Math.floor(Date.now() / 1000) + 86_400,
+    metadata: { businessId: userId, planId },
+    items: { data: [{ price: { id: "price_current", unit_amount: 7900, recurring: { interval: "month" } } }] },
+    ...overrides,
+  };
+}
+
+function arrange(existing: Record<string, unknown>[] = []) {
+  selectResults.push([{ id: userId, stripeCustomerId: "cus_current" }], existing, [{ id: planId }], [{ id: planId }]);
+}
+
+describe("business subscription ownership and payment recovery", () => {
+  it("accepts a business identity without legacy user metadata", () => {
+    expect(parseStripeSubscription(subscription())?.userId).toBe(userId);
+  });
+
+  it("blocks an attempted unpaid invoice even when the subscription says active", async () => {
+    arrange();
+    const result = await syncStripeSubscriptionProjection(subscription({ latest_invoice: {
+      id: "in_failed", status: "open", paid: false, amount_remaining: 7900, attempt_count: 1,
+    } }), undefined, { failedInvoiceId: "in_failed" });
+    expect(result).toMatchObject({ ok: true, becameActive: false });
+    expect(valuesMock).toHaveBeenCalledWith(expect.objectContaining({ latestInvoiceId: "in_failed", paymentBlockedAt: expect.any(Date) }));
+  });
+
+  it("does not mistake an open invoice with a processing payment for a failed payment", async () => {
+    arrange();
+    const result = await syncStripeSubscriptionProjection(subscription({ latest_invoice: {
+      id: "in_processing", status: "open", paid: false, amount_remaining: 7900, attempt_count: 1,
+    } }));
+    expect(result).toMatchObject({ ok: true, becameActive: true });
+    expect(valuesMock).toHaveBeenCalledWith(expect.objectContaining({ paymentBlockedAt: null }));
+  });
+
+  it("clears a previous failure only after the latest invoice is paid", async () => {
+    arrange([{ userId, planId, stripeSubscriptionId: "sub_current", status: "active", paymentBlockedAt: new Date(), latestInvoiceId: "in_failed" }]);
+    const result = await syncStripeSubscriptionProjection(subscription({ latest_invoice: {
+      id: "in_failed", status: "paid", paid: true, amount_remaining: 0, attempt_count: 2,
+    } }));
+    expect(result).toMatchObject({ ok: true, becameActive: true });
+    expect(valuesMock).toHaveBeenCalledWith(expect.objectContaining({ paymentBlockedAt: null }));
+  });
+
+  it("does not clear a failure from an unexpanded invoice reference", async () => {
+    const failedAt = new Date();
+    arrange([{ userId, planId, stripeSubscriptionId: "sub_current", status: "active", paymentBlockedAt: failedAt }]);
+    await syncStripeSubscriptionProjection(subscription({ latest_invoice: "in_failed" }));
+    expect(valuesMock).toHaveBeenCalledWith(expect.objectContaining({ paymentBlockedAt: failedAt }));
+  });
+
+  it("rejects a customer from another business before changing local billing", async () => {
+    selectResults.push([{ id: userId, stripeCustomerId: "cus_someone_else" }]);
+    expect(await syncStripeSubscriptionProjection(subscription())).toMatchObject({ ok: false, code: "conflict" });
+    expect(valuesMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a second live subscription for the same business", async () => {
+    arrange([{ userId, planId, stripeSubscriptionId: "sub_existing", status: "active" }]);
+    expect(await syncStripeSubscriptionProjection(subscription())).toMatchObject({ ok: false, code: "conflict" });
+    expect(valuesMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores cancellation of an old subscription without overwriting its replacement", async () => {
+    arrange([{ userId, planId, stripeSubscriptionId: "sub_replacement", status: "active" }]);
+    expect(await syncStripeSubscriptionProjection(subscription({ status: "canceled" }))).toMatchObject({ ok: true, applied: false });
+    expect(valuesMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes canonical state inside the transaction before applying an old event", async () => {
+    arrange();
+    const refresh = vi.fn(async () => subscription({ status: "past_due" }));
+    await syncStripeSubscriptionProjection(subscription(), undefined, { refresh });
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(valuesMock).toHaveBeenCalledWith(expect.objectContaining({ status: "past_due" }));
   });
 });

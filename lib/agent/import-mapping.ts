@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 import { requestFalcoJson, type FalcoProvider } from "@/lib/agent/falco-provider";
+import { recordAgentUsage } from "@/lib/agent/usage";
 import { normalizeCrmDate, normalizeCrmOutcome, normalizeCrmPlatform, normalizeCrmSource, normalizeCrmStage } from "@/lib/crm/import";
 import {
   ALL_TARGET_FIELDS,
@@ -634,6 +635,9 @@ export async function mapImportedFile(
     throw error;
   }
 
+  if (provider.businessId) {
+    await recordAgentUsage({ businessId: provider.businessId, actorUserId: provider.actorUserId, keySource: provider.source, operation: provider.operation ?? "import-mapping", inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens });
+  }
   const toolUseBlock = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
   if (!toolUseBlock) {
     throw new Error("Le modèle n'a pas retourné de mapping structuré.");

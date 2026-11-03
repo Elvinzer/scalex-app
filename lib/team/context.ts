@@ -1,18 +1,25 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { cache } from "react";
-
 import { db } from "@/db";
-import { teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
-import { isAdminEmail } from "@/lib/admin";
-import { hasActiveTeamSubscription } from "@/lib/billing/plan-gate";
-import { withDatabaseReadRetry } from "@/lib/perf/database-retry";
-import { getInFlight } from "@/lib/perf/in-flight";
+import { businesses, teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
+import { getBusinessEntitlement, getBusinessMemberEntitlement, type BusinessEntitlement } from "@/lib/businesses/entitlements";
+import { listUserBusinesses } from "@/lib/businesses/queries";
+import { getSelectedBusinessId } from "@/lib/businesses/request";
+import { businessHref, businessIdSchema, PATHNAME_HEADER } from "@/lib/businesses/routing";
 import { expandPermissionKeys, type PermissionKey } from "@/lib/team/permissions";
 
-export type AccountContext =
-  | { isOwner: true; accountId: string; permissions: "all"; advancedModulesEnabled: boolean; crmEnabled: boolean; onboardingCompleted?: boolean }
-  | { isOwner: false; accountId: string; permissions: Set<string>; advancedModulesEnabled: boolean; crmEnabled: boolean };
+export type BusinessAccessOptions = { businessId?: string; allowSuspended?: boolean };
+type BusinessContext = {
+  accountId: string; businessId: string; businessName: string; ownerEmail: string;
+  advancedModulesEnabled: boolean; crmEnabled: boolean; onboardingCompleted: boolean;
+  entitlement: BusinessEntitlement;
+};
+export type AccountContext = BusinessContext & (
+  | { isOwner: true; permissions: "all" }
+  | { isOwner: false; permissions: Set<string> }
+);
 
 const MEMBER_LANDING_ROUTES: readonly { permission: PermissionKey; href: string }[] = [
   { permission: "dashboard", href: "/dashboard" },
@@ -33,186 +40,92 @@ const MEMBER_LANDING_ROUTES: readonly { permission: PermissionKey; href: string 
 ];
 
 export function getDefaultAppRoute(context: AccountContext | null): string {
-  if (!context) return "/";
+  if (!context) return "/businesses/new";
+  if (!context.entitlement.active) return context.isOwner ? "/settings/facturation" : "/businesses";
   if (context.isOwner) return "/dashboard";
   return MEMBER_LANDING_ROUTES.find(({ permission }) => context.permissions.has(permission))?.href ?? "/roadmap";
 }
 
 export function resolvePostAuthRoute(context: AccountContext | null, onboardingCompleted: boolean): string {
-  if (context && !context.isOwner) return getDefaultAppRoute(context);
+  if (!context || !context.entitlement.active || !context.isOwner) return getDefaultAppRoute(context);
   return onboardingCompleted ? "/dashboard" : "/onboarding";
 }
 
-// Resolve the first page a person can actually open after authentication.
-// Owners still follow the onboarding flow. Team members skip it and land on
-// their first granted page, or on /roadmap when their role has no permissions.
 export async function getPostAuthDestination(userId: string): Promise<string> {
-  const context = await getAccountContext(userId);
-  if (context && !context.isOwner) return resolvePostAuthRoute(context, false);
-  if (context?.onboardingCompleted !== undefined) {
-    return resolvePostAuthRoute(context, context.onboardingCompleted);
-  }
-
-  const accountId = context?.accountId ?? userId;
-  const [user] = await db
-    .select({ onboardingCompleted: users.onboardingCompleted })
-    .from(users)
-    .where(eq(users.id, accountId))
-    .limit(1);
-
-  return resolvePostAuthRoute(context, user?.onboardingCompleted === true);
+  const available = await listUserBusinesses(userId);
+  const selected = await getSelectedBusinessId();
+  const id = selected ?? available.find((business) => business.active)?.id ?? available[0]?.id;
+  if (!id) return "/businesses/new";
+  const context = await getAccountContext(userId, { businessId: id, allowSuspended: true });
+  if (!context) return "/businesses";
+  return businessHref(id, resolvePostAuthRoute(context, context.onboardingCompleted));
 }
 
-// Resolves which account a Supabase Auth user id acts on behalf of, and
-// with what permissions. No separate "accounts" table: an account IS its
-// owner's users.id (see db/schema.ts's team* tables comment). A user with no
-// active team membership is always the owner of their own account — today's
-// behavior, unchanged. Memoized per request (React's cache()) so a layout +
-// page rendering the same request only resolves this once; Server Actions
-// are separate invocations and re-resolve fresh, which is fine — it's a
-// single indexed query.
-//
-// Returns null if the resolved account's Minaly subscription has lapsed:
-// team members lose access immediately, not just future invites, per
-// CLAUDE.md ("l'infopreneur devra forcément avoir un abonnement"). Never
-// null for an owner — the gate only applies to delegated access.
-//
-// Founders (ADMIN_EMAILS, see lib/admin.ts) always get unconditional full
-// access to their own account — never gated by role permissions, and never
-// blocked by a lapsed/missing subscription (see the matching bypass in
-// lib/billing/plan-gate.ts's hasActiveTeamSubscription, for the couple of
-// call sites — /settings/equipe, /settings/facturation — that check the
-// subscription directly rather than through this function).
-async function fetchAccountContext(userId: string): Promise<AccountContext | null> {
-  const [[userRow], [membership]] = await Promise.all([
-    withDatabaseReadRetry(
-      () => db
-        .select({
-          email: users.email,
-          advancedModulesEnabled: users.advancedModulesEnabled,
-          crmEnabled: users.crmEnabled,
-          onboardingCompleted: users.onboardingCompleted,
-        })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1),
-      { operation: "account-context-user", timeoutMs: 8_000 },
-    ),
-    withDatabaseReadRetry(
-      () => db
-        .select({ id: teamMembers.id, accountId: teamMembers.accountId })
-        .from(teamMembers)
-        .where(and(eq(teamMembers.memberUserId, userId), eq(teamMembers.status, "active")))
-        .orderBy(desc(teamMembers.joinedAt))
-        .limit(1),
-      { operation: "account-context-membership", timeoutMs: 8_000 },
-    ),
-  ]);
-
-  if (userRow && isAdminEmail(userRow.email)) {
-    return {
-      isOwner: true,
-      accountId: userId,
-      permissions: "all",
-      advancedModulesEnabled: userRow.advancedModulesEnabled,
-      crmEnabled: userRow.crmEnabled,
-      onboardingCompleted: userRow.onboardingCompleted,
-    };
-  }
-
-  if (!membership) {
-    return {
-      isOwner: true,
-      accountId: userId,
-      permissions: "all",
-      advancedModulesEnabled: userRow?.advancedModulesEnabled ?? false,
-      crmEnabled: userRow?.crmEnabled ?? false,
-      onboardingCompleted: userRow?.onboardingCompleted ?? false,
-    };
-  }
-
-  const subscriptionActive = await hasActiveTeamSubscription(membership.accountId);
-  if (!subscriptionActive) {
-    return null;
-  }
-
-  // The Avancé flag is account-level (the owner's row), not per-member — a
-  // team member inherits their account's flag rather than having their own.
-  const [[accountRow], roles] = await withDatabaseReadRetry(
-    () => Promise.all([
-      db.select({ advancedModulesEnabled: users.advancedModulesEnabled, crmEnabled: users.crmEnabled }).from(users).where(eq(users.id, membership.accountId)).limit(1),
-      db
-        .select({ permissions: teamRoles.permissions })
-        .from(teamMemberRoles)
-        .innerJoin(teamRoles, eq(teamMemberRoles.roleId, teamRoles.id))
-        .where(eq(teamMemberRoles.teamMemberId, membership.id)),
-    ]),
-    { operation: "account-context-permissions", timeoutMs: 8_000 },
-  );
-
-  const permissions = expandPermissionKeys(roles.flatMap((role) => role.permissions));
-
-  return {
-    isOwner: false,
-    accountId: membership.accountId,
-    permissions,
-    advancedModulesEnabled: accountRow?.advancedModulesEnabled ?? false,
-    crmEnabled: accountRow?.crmEnabled ?? false,
-  };
-}
-
-const inFlightAccountContexts = new Map<string, Promise<AccountContext | null>>();
-
-export const getAccountContext = cache(async (userId: string): Promise<AccountContext | null> => {
-  return getInFlight(inFlightAccountContexts, userId, () => withDatabaseReadRetry(
-    () => fetchAccountContext(userId),
-    { operation: "account-context", timeoutMs: 12_000, attempts: 1 },
-  ));
+// Request-scoped cache only: the same actor can have concurrent requests in A and B.
+const fetchAccountContext = cache(async (userId: string, businessId: string, allowSuspended: boolean): Promise<AccountContext | null> => {
+  const [business] = await db.select({
+    id: businesses.id, ownerUserId: businesses.ownerUserId, name: businesses.name,
+    advancedModulesEnabled: businesses.advancedModulesEnabled, crmEnabled: businesses.crmEnabled,
+    onboardingCompleted: businesses.onboardingCompleted, ownerEmail: users.email,
+  }).from(businesses).innerJoin(users, eq(users.id, businesses.ownerUserId)).where(eq(businesses.id, businessId)).limit(1);
+  if (!business) return null;
+  const isOwner = business.ownerUserId === userId;
+  const [membership] = isOwner ? [] : await db.select({ id: teamMembers.id }).from(teamMembers)
+    .where(and(eq(teamMembers.accountId, businessId), eq(teamMembers.memberUserId, userId), eq(teamMembers.status, "active"))).limit(1);
+  if (!isOwner && !membership) return null;
+  const entitlement = await (isOwner ? getBusinessEntitlement(businessId) : getBusinessMemberEntitlement(businessId));
+  if (!allowSuspended && !entitlement.active) return null;
+  const common = { accountId: businessId, businessId, businessName: business.name, ownerEmail: business.ownerEmail,
+    advancedModulesEnabled: business.advancedModulesEnabled, crmEnabled: business.crmEnabled,
+    onboardingCompleted: business.onboardingCompleted, entitlement };
+  if (isOwner) return { ...common, isOwner: true, permissions: "all" };
+  const roles = await db.select({ permissions: teamRoles.permissions }).from(teamMemberRoles)
+    .innerJoin(teamRoles, and(eq(teamMemberRoles.roleId, teamRoles.id), eq(teamRoles.accountId, businessId)))
+    .where(eq(teamMemberRoles.teamMemberId, membership.id));
+  return { ...common, isOwner: false, permissions: expandPermissionKeys(roles.flatMap((role) => role.permissions)) };
 });
 
-// Used by every page/Server Action gated to a specific role-grantable
-// section — null means "redirect" (page) or "{ error }" (Server Action) at
-// the call site, never thrown, so callers stay in control of the UX.
-export async function requirePermission(
-  userId: string,
-  key: PermissionKey
-): Promise<{ accountId: string } | null> {
-  const context = await getAccountContext(userId);
-  if (!context) return null;
-  if (context.isOwner) return { accountId: context.accountId };
-  return context.permissions.has(key) ? { accountId: context.accountId } : null;
+export async function getAccountContext(userId: string, options: BusinessAccessOptions = {}): Promise<AccountContext | null> {
+  const selected = options.businessId ?? await getSelectedBusinessId();
+  if (selected) {
+    const parsed = businessIdSchema.safeParse(selected);
+    return parsed.success ? fetchAccountContext(userId, parsed.data, options.allowSuspended === true) : null;
+  }
+  // Unscoped API requests cannot silently select a different business.
+  const path = (await headers()).get(PATHNAME_HEADER);
+  if (path?.startsWith("/api/")) return null;
+  const choices = await listUserBusinesses(userId);
+  const initial = choices.find((business) => business.active) ?? choices[0];
+  return initial ? fetchAccountContext(userId, initial.id, options.allowSuspended === true) : null;
 }
 
-// Used by everything that stays account-owner-only regardless of role:
-// /settings (BYOK key, Stripe Connect), /settings/facturation,
-// /settings/equipe (members + roles/permissions).
-export async function requireOwner(userId: string): Promise<{ accountId: string } | null> {
-  const context = await getAccountContext(userId);
+export async function requirePermission(userId: string, key: PermissionKey, options: BusinessAccessOptions = {}): Promise<{ accountId: string } | null> {
+  const context = await getAccountContext(userId, options);
   if (!context) return null;
-  return context.isOwner ? { accountId: context.accountId } : null;
+  return context.isOwner || context.permissions.has(key) ? { accountId: context.accountId } : null;
 }
 
-// Page-only convenience (Server Components): redirects instead of returning
-// null, so a gated page.tsx doesn't need to repeat the same `if (!access)
-// redirect(...)` boilerplate. Server Actions must NOT use these — they need
-// the `{ error }` shape, so they call requirePermission/requireOwner
-// directly. redirect() throws (Next.js types it `never`), so TS narrows
-// `access` to non-null on the line below.
-export async function requirePermissionOrRedirect(
-  userId: string,
-  key: PermissionKey,
-  redirectTo?: string
-): Promise<{ accountId: string }> {
-  const access = await requirePermission(userId, key);
+export async function requireOwner(userId: string, options: BusinessAccessOptions = {}): Promise<{ accountId: string } | null> {
+  const context = await getAccountContext(userId, options);
+  return context?.isOwner ? { accountId: context.accountId } : null;
+}
+
+export async function requirePermissionOrRedirect(userId: string, key: PermissionKey, redirectTo?: string, options: BusinessAccessOptions = {}): Promise<{ accountId: string }> {
+  const access = await requirePermission(userId, key, options);
   if (!access) {
-    const context = await getAccountContext(userId);
-    redirect(redirectTo ?? getDefaultAppRoute(context));
+    const context = await getAccountContext(userId, { ...options, allowSuspended: true });
+    const path = redirectTo ?? getDefaultAppRoute(context);
+    redirect(context ? businessHref(context.accountId, path) : "/businesses");
   }
   return access;
 }
 
-export async function requireOwnerOrRedirect(userId: string, redirectTo = "/dashboard"): Promise<{ accountId: string }> {
-  const access = await requireOwner(userId);
-  if (!access) redirect(redirectTo);
+export async function requireOwnerOrRedirect(userId: string, redirectTo = "/dashboard", options: BusinessAccessOptions = {}): Promise<{ accountId: string }> {
+  const access = await requireOwner(userId, options);
+  if (!access) {
+    const context = await getAccountContext(userId, { ...options, allowSuspended: true });
+    const path = context && !context.entitlement.active ? getDefaultAppRoute(context) : redirectTo;
+    redirect(context ? businessHref(context.accountId, path) : "/businesses");
+  }
   return access;
 }

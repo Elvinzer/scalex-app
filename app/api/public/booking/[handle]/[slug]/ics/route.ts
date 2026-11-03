@@ -3,7 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
-import { nativeBookingEvents, nativeBookings, users } from "@/db/schema";
+import { businesses, nativeBookingEvents, nativeBookings, users } from "@/db/schema";
 import { createNativeBookingIcs } from "@/lib/native-booking/ics";
 import { hashBookingManagementToken } from "@/lib/native-booking/tokens";
 import { bookingManagementTokenSchema } from "@/lib/native-booking/validation";
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const token = parsedToken.data;
 
   const tokenHash = hashBookingManagementToken(token);
-  const owner = alias(users, "owner");
+  const owner = alias(businesses, "owner");
   const [row] = await db
     .select({ booking: nativeBookings, event: nativeBookingEvents, closer: users })
     .from(nativeBookings)

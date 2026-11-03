@@ -3,6 +3,8 @@ const minalyProductionOrigin = "https://www.minaly.io";
 const minalyDevelopmentOrigin = "http://localhost:3000";
 const minalyBackgroundOriginKey = "minalyCrmExtensionOrigin";
 const minalyBackgroundTokenKey = "minalyCrmExtensionToken";
+const minalyBackgroundBusinessKey = "minalyCrmExtensionBusinessId";
+const minalyBackgroundBusinessNameKey = "minalyCrmExtensionBusinessName";
 const minalyBackgroundAuthStateKey = "minalyCrmExtensionAuthState";
 const minalyBackgroundAuthTabKey = "minalyCrmExtensionAuthTab";
 const minalyBackgroundPendingUpdateKey = "minalyCrmExtensionPendingUpdate";
@@ -89,12 +91,16 @@ async function minalyBackgroundOrigin() {
     return values[minalyBackgroundOriginKey] === minalyDevelopmentOrigin ? minalyDevelopmentOrigin : minalyProductionOrigin;
 }
 async function minalyBackgroundSession() {
+    const storedBusiness = await chrome.storage.local.get([minalyBackgroundBusinessKey]);
+    const businessId = minalyBackgroundBusinessId(storedBusiness[minalyBackgroundBusinessKey]);
+    if (!businessId)
+        return null;
     const preferredOrigin = await minalyBackgroundOrigin();
     const origins = preferredOrigin === minalyProductionOrigin ? [minalyProductionOrigin, minalyDevelopmentOrigin] : [minalyDevelopmentOrigin, minalyProductionOrigin];
     for (const origin of origins) {
         let response;
         try {
-            response = await fetch(`${origin}/api/crm/extension/session`, { method: "POST", credentials: "include" });
+            response = await fetch(`${origin}/api/crm/extension/session`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(businessId ? { businessId } : {}) });
         }
         catch {
             continue;
@@ -108,15 +114,37 @@ async function minalyBackgroundSession() {
         const token = typeof data.extensionToken === "string" ? data.extensionToken : typeof data.token === "string" ? data.token : null;
         if (!token)
             continue;
-        await chrome.storage.local.set({ [minalyBackgroundTokenKey]: token, [minalyBackgroundOriginKey]: origin });
+        const resolvedBusinessId = minalyBackgroundBusinessId(data.businessId) ?? minalyBusinessIdFromToken(token);
+        if (businessId && resolvedBusinessId !== businessId)
+            continue;
+        await chrome.storage.local.set({ [minalyBackgroundTokenKey]: token, [minalyBackgroundOriginKey]: origin, ...(resolvedBusinessId ? { [minalyBackgroundBusinessKey]: resolvedBusinessId } : {}), ...(typeof data.businessName === "string" && data.businessName.trim() ? { [minalyBackgroundBusinessNameKey]: data.businessName.trim().slice(0, 200) } : {}) });
         return token;
     }
     return null;
 }
+function minalyBackgroundBusinessId(value) {
+    return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null;
+}
+// This is an advisory routing hint only; the server verifies the signature
+// and current membership before every operation and renewal.
+function minalyBusinessIdFromToken(token) {
+    try {
+        const payload = JSON.parse(atob(token.split(".")[0].replace(/-/g, "+").replace(/_/g, "/")));
+        return minalyBackgroundIsRecord(payload) ? minalyBackgroundBusinessId(payload.accountId) : null;
+    }
+    catch {
+        return null;
+    }
+}
 async function minalyBackgroundRequest(message) {
     let origin = await minalyBackgroundOrigin();
-    const values = await chrome.storage.local.get([minalyBackgroundTokenKey]);
+    const values = await chrome.storage.local.get([minalyBackgroundTokenKey, minalyBackgroundBusinessKey, minalyBackgroundBusinessNameKey]);
     let token = typeof values[minalyBackgroundTokenKey] === "string" ? values[minalyBackgroundTokenKey] : await minalyBackgroundSession();
+    const pinnedBusinessId = minalyBackgroundBusinessId(values[minalyBackgroundBusinessKey]) ?? (token ? minalyBusinessIdFromToken(token) : null);
+    if (pinnedBusinessId)
+        await chrome.storage.local.set({ [minalyBackgroundBusinessKey]: pinnedBusinessId });
+    if (pinnedBusinessId && !values[minalyBackgroundBusinessNameKey])
+        token = await minalyBackgroundSession();
     const request = async (requestOrigin, bearer) => fetch(`${requestOrigin}${message.path}`, {
         method: "POST",
         credentials: "include",
@@ -147,7 +175,10 @@ async function minalyBackgroundRequest(message) {
     catch {
         body = null;
     }
-    return { status: response.status, body };
+    const business = await chrome.storage.local.get([minalyBackgroundBusinessKey, minalyBackgroundBusinessNameKey]);
+    const businessId = minalyBackgroundBusinessId(business[minalyBackgroundBusinessKey]);
+    const businessName = typeof business[minalyBackgroundBusinessNameKey] === "string" ? business[minalyBackgroundBusinessNameKey] : null;
+    return { status: response.status, body, ...(businessId ? { businessId } : {}), ...(businessName ? { businessName } : {}) };
 }
 async function minalyBackgroundFetchRelease() {
     const preferredOrigin = await minalyBackgroundOrigin();
@@ -246,7 +277,9 @@ async function minalyCompleteAuth(value, sender) {
     }
     const origin = await minalyBackgroundOrigin();
     await chrome.storage.local.remove([minalyBackgroundTokenKey]);
-    await chrome.storage.local.set({ [minalyBackgroundTokenKey]: callback.token, [minalyBackgroundOriginKey]: origin });
+    const businessId = minalyBusinessIdFromToken(callback.token);
+    await chrome.storage.local.remove([minalyBackgroundBusinessKey, minalyBackgroundBusinessNameKey]);
+    await chrome.storage.local.set({ [minalyBackgroundTokenKey]: callback.token, [minalyBackgroundOriginKey]: origin, ...(businessId ? { [minalyBackgroundBusinessKey]: businessId } : {}) });
     const tabs = await chrome.tabs.query({});
     await Promise.all(tabs.flatMap((tab) => typeof tab.id === "number"
         ? [chrome.tabs.sendMessage(tab.id, { type: "minaly-authenticated" }).catch(() => undefined)]

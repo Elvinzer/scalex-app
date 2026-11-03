@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, exists, gte, gt, ne, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import {
+import { getBusinessEntitlement } from "@/lib/businesses/entitlements";
+import { businesses,
   nativeBookingAvailability,
   nativeBookingEventClosers,
   nativeBookingEvents,
@@ -105,10 +106,11 @@ export async function getPublicNativeBookingEvent(handle: string, slug: string) 
   const [row] = await db
     .select({ event: nativeBookingEvents })
     .from(nativeBookingEvents)
-    .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
-    .where(and(eq(users.bookingHandle, handle), eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
+    .innerJoin(businesses, eq(businesses.id, nativeBookingEvents.userId))
+    .where(and(eq(businesses.bookingHandle, handle), eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
     .limit(1);
   if (!row) return null;
+  if (!(await getBusinessEntitlement(row.event.userId)).active) return null;
   const questions = await db
     .select()
     .from(nativeBookingQuestions)
@@ -125,9 +127,9 @@ export async function getPublicNativeBookingEvent(handle: string, slug: string) 
 // comportement, et la fenêtre se referme dès que les liens namespacés prennent le relais.
 export async function resolveHandleForLegacySlug(slug: string): Promise<string | null> {
   const rows = await db
-    .select({ handle: users.bookingHandle })
+    .select({ handle: businesses.bookingHandle })
     .from(nativeBookingEvents)
-    .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
+    .innerJoin(businesses, eq(businesses.id, nativeBookingEvents.userId))
     .where(and(eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
     .limit(2);
   const handles = rows.map((row) => row.handle).filter((handle): handle is string => Boolean(handle));

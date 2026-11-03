@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { NonRetriableError } from "inngest";
 
 import { db } from "@/db";
-import { diagnostics, stripeConnections, users } from "@/db/schema";
+import { businesses, diagnostics, stripeConnections, users } from "@/db/schema";
 import { isAdminEmail } from "@/lib/admin";
 import { track } from "@/lib/analytics";
 import { decrypt } from "@/lib/crypto";
@@ -33,7 +33,7 @@ export const syncStripeAccount = inngest.createFunction(
     });
 
     const isAdminBypass = await step.run("check-admin-bypass", async () => {
-      const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+      const [user] = await db.select({ email: users.email }).from(businesses).innerJoin(users, eq(users.id, businesses.ownerUserId)).where(eq(businesses.id, userId)).limit(1);
       return Boolean(user && isAdminEmail(user.email));
     });
 

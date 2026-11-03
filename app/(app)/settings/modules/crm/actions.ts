@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses } from "@/db/schema";
 import { requireUserIdOrError } from "@/lib/current-user";
 import { requireOwner } from "@/lib/team/context";
 
@@ -19,7 +19,7 @@ export async function setCrmEnabled(input: unknown): Promise<{ error: string | n
   const parsed = activationSchema.safeParse(input);
   if (!parsed.success) return { error: "Activation CRM invalide." };
 
-  await db.update(users).set({ crmEnabled: parsed.data.enabled }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ crmEnabled: parsed.data.enabled }).where(eq(businesses.id, access.accountId));
   revalidatePath("/crm", "layout");
   revalidatePath("/settings/modules/crm");
   revalidatePath("/dashboard");

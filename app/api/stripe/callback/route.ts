@@ -1,9 +1,12 @@
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
+
+import { readBusinessOAuthState } from "@/lib/integrations/oauth-state";
+import { businessHref } from "@/lib/businesses/routing";
 import Stripe from "stripe";
 
 import { db } from "@/db";
-import { stripeConnections, users } from "@/db/schema";
+import { stripeConnections, businesses } from "@/db/schema";
 import { encrypt } from "@/lib/crypto";
 import { inngest, stripeAccountConnected } from "@/lib/inngest/client";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -17,8 +20,9 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
   const storedState = request.cookies.get("stripe_oauth_state")?.value;
 
-  if (!code || !state || !storedState || state !== storedState) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+  const oauthState = readBusinessOAuthState(storedState, state, "stripe");
+  if (!code || !oauthState) {
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
 
   const supabase = await createClient();
@@ -30,18 +34,19 @@ export async function GET(request: NextRequest) {
   // Same owner-only boundary as /api/stripe/connect (the route that starts
   // this flow) — defense in depth in case this callback is ever hit
   // directly.
-  const access = await requireOwner(userId);
+  if (oauthState.userId !== userId) return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
+  const access = await requireOwner(userId, { businessId: oauthState.businessId });
   if (!access) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
   if (isRateLimited(`stripe-callback:${access.accountId}`, 10)) {
-    return NextResponse.redirect(new URL("/integrations", origin));
+    return NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   }
 
   const clientSecret = process.env.STRIPE_CONNECT_CLIENT_SECRET;
   if (!clientSecret) {
     console.error("[stripe] STRIPE_CONNECT_CLIENT_SECRET manquant — échange OAuth impossible");
-    return NextResponse.redirect(new URL("/integrations?stripe_error=config", origin));
+    return NextResponse.redirect(new URL(businessHref(oauthState.businessId, "/integrations?stripe_error=config"), origin));
   }
 
   const stripe = new Stripe(clientSecret);
@@ -49,16 +54,16 @@ export async function GET(request: NextRequest) {
   try {
     tokenResponse = await stripe.oauth.token({ grant_type: "authorization_code", code });
   } catch (error) {
-    console.error("[stripe] échange OAuth échoué", error);
-    return NextResponse.redirect(new URL("/integrations?stripe_error=oauth", origin));
+    console.error("[stripe] échange OAuth échoué", { errorName: error instanceof Error ? error.name : "unknown" });
+    return NextResponse.redirect(new URL(businessHref(oauthState.businessId, "/integrations?stripe_error=oauth"), origin));
   }
 
   if (!tokenResponse.access_token || !tokenResponse.stripe_user_id) {
-    return NextResponse.redirect(new URL("/integrations?stripe_error=oauth", origin));
+    return NextResponse.redirect(new URL(businessHref(oauthState.businessId, "/integrations?stripe_error=oauth"), origin));
   }
 
   const values = {
-    userId,
+    userId: access.accountId,
     stripeAccountId: tokenResponse.stripe_user_id,
     accessTokenEncrypted: encrypt(tokenResponse.access_token),
     refreshTokenEncrypted: tokenResponse.refresh_token
@@ -86,7 +91,7 @@ export async function GET(request: NextRequest) {
         target: stripeConnections.userId,
         set: { ...values, connectedAt: new Date(), initialSyncCompletedAt: null },
       }),
-    db.update(users).set({ stripeConnectId: tokenResponse.stripe_user_id }).where(eq(users.id, userId)),
+    db.update(businesses).set({ stripeConnectId: tokenResponse.stripe_user_id }).where(eq(businesses.id, access.accountId)),
   ]);
 
   // Best-effort — the connection itself is already durably saved above by
@@ -97,14 +102,14 @@ export async function GET(request: NextRequest) {
   // will stay on "pending" until the account reconnects or a Phase 2 resync
   // button exists).
   try {
-    await inngest.send(stripeAccountConnected.create({ userId }));
+    await inngest.send(stripeAccountConnected.create({ userId: access.accountId }));
   } catch (error) {
-    console.error("inngest.send(stripeAccountConnected) failed, Stripe connection saved anyway", error);
+    console.error("inngest.send(stripeAccountConnected) failed, Stripe connection saved anyway", { errorName: error instanceof Error ? error.name : "unknown" });
   }
 
   revalidateBusinessData(access.accountId);
 
-  const response = NextResponse.redirect(new URL("/integrations", origin));
+  const response = NextResponse.redirect(new URL(oauthState ? businessHref(oauthState.businessId, "/integrations") : "/businesses", origin));
   response.cookies.delete("stripe_oauth_state");
   return response;
 }

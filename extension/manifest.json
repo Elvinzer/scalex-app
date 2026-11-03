@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Minaly CRM",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "description": "Capture les profils sociaux visibles dans le CRM Minaly.",
-  "permissions": ["storage", "tabs"],
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
   "host_permissions": [
     "https://www.minaly.io/*",
     "http://localhost:3000/*"
@@ -19,7 +22,9 @@
         "https://www.linkedin.com/*",
         "https://linkedin.com/*"
       ],
-      "js": ["dist/content.js"],
+      "js": [
+        "dist/content.js"
+      ],
       "run_at": "document_idle"
     }
   ],

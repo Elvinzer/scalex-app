@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
+import { getBusinessAccountById } from "@/lib/current-user";
 import { supportTicketAttachments, supportTicketEvents, supportTickets, users } from "@/db/schema";
 import { getAuthIdentity } from "@/lib/auth/request";
 import { getAccountContext } from "@/lib/team/context";
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const [account] = await db.select({ displayName: users.displayName, email: users.email }).from(users).where(eq(users.id, context.accountId)).limit(1);
+  const account = await getBusinessAccountById(context.accountId);
   const [requester] = await db.select({ displayName: users.displayName, email: users.email }).from(users).where(eq(users.id, identity.userId)).limit(1);
   const [attachment] = await db.select({ id: supportTicketAttachments.id }).from(supportTicketAttachments).where(eq(supportTicketAttachments.ticketId, ticket.id)).limit(1);
 

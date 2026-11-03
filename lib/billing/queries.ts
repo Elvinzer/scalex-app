@@ -17,6 +17,8 @@ export async function getAccountSubscription(accountId: string) {
       status: subscriptions.status,
       currentPeriodEnd: subscriptions.currentPeriodEnd,
       cancelAtPeriodEnd: subscriptions.cancelAtPeriodEnd,
+      paymentBlockedAt: subscriptions.paymentBlockedAt,
+      latestInvoiceId: subscriptions.latestInvoiceId,
       stripeCustomerId: subscriptions.stripeCustomerId,
       stripeSubscriptionId: subscriptions.stripeSubscriptionId,
       stripePriceId: subscriptions.stripePriceId,

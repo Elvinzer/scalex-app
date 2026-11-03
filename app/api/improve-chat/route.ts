@@ -1,11 +1,10 @@
-import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { AGENT_KEY_CONSOLIDATION } from "@/lib/agent/agent-consolidation";
 import { getAgentByKey } from "@/lib/agent/agents-registry";
 import { appendConversationMessage, getConversation, titleFor, updateConversationTitle } from "@/lib/agent/chat-history";
-import { requestFalcoStream, resolveFalcoProvider, transformAnthropicStream } from "@/lib/agent/falco-provider";
+import { requestFalcoStream, resolveFalcoProvider } from "@/lib/agent/falco-provider";
 import { resolveLeverAgentData } from "@/lib/agent/lever-agent-data";
 import { resolvePageAgentData } from "@/lib/agent/page-agent-data";
 import { getPageContextByKey } from "@/lib/agent/page-context";
@@ -13,8 +12,6 @@ import { createSseAccumulatorStream } from "@/lib/agent/sse-accumulator";
 import { extractFalcoInsightEvent } from "@/lib/agent/falco-insight-proposal";
 import { resolveFalcoResponseLocale } from "@/lib/agent/language-instruction";
 import { track } from "@/lib/analytics";
-import { db } from "@/db";
-import { users } from "@/db/schema";
 import { chatContextSchema, type ChatContext } from "@/lib/chat-context";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
@@ -34,6 +31,7 @@ import { requirePermission } from "@/lib/team/context";
 import { getContentRecommendation, getWinningPatterns } from "@/lib/youtube/recommendations";
 import type { YoutubeWinningPatternsSnapshot } from "@/lib/youtube/recommendation-types";
 import { getRequestLocale } from "@/lib/i18n/locale";
+import { getBusinessAccountById, getUserById } from "@/lib/current-user";
 
 const MAX_MESSAGES = 20;
 
@@ -138,8 +136,8 @@ export async function POST(request: NextRequest) {
   // data — never trusts a client-sent rate/€ figure, same rule as
   // lib/agent/insight.ts. `agent` is the single unified Falco row (identity/
   // prompt/temperature) — always fetched, regardless of topicType.
-  const [[userRow], businessProfile, rawData, agent, acquisitionCatalog] = await Promise.all([
-    db.select().from(users).where(eq(users.id, accountId)).limit(1),
+  const [userRow, businessProfile, rawData, agent, acquisitionCatalog] = await Promise.all([
+    getBusinessAccountById(accountId),
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
     getAgentByKey("falco"),
@@ -180,20 +178,19 @@ export async function POST(request: NextRequest) {
   // own row: users.displayName is personal (/settings' updateProfile writes
   // it to claims.sub), while userRow above is the account owner's row. Same
   // row for an owner, so this costs nothing in the common case.
-  const [currentUserRow] =
-    userId === accountId ? [userRow] : await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const currentUserRow = await getUserById(userId);
   const userName = currentUserRow?.displayName?.trim() || null;
 
   let falcoProvider: Awaited<ReturnType<typeof resolveFalcoProvider>>;
   try {
-    const falcoUser = currentUserRow ?? userRow;
+    const falcoUser = userRow;
     if (!falcoUser) {
       return NextResponse.json({ error: "Compte utilisateur introuvable. Recharge la page." }, { status: 400 });
     }
     falcoProvider = await resolveFalcoProvider({
       id: falcoUser.id,
       anthropicApiKeyEncrypted: falcoUser.anthropicApiKeyEncrypted,
-    });
+    }, { actorUserId: userId, operation: "falco-chat" });
   } catch (error) {
     console.error("[improve-chat] Falco provider resolution failed", {
       errorName: error instanceof Error ? error.name : "unknown",
@@ -381,16 +378,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const normalizedBody =
-    falcoProvider.kind === "anthropic"
-      ? transformAnthropicStream(upstream.body, (usage) => {
-          console.info("[improve-chat] Falco Anthropic usage", {
-            userId,
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-          });
-        })
-      : upstream.body;
+  const normalizedBody = upstream.body;
 
   // Tee the stream when the conversation persists: forward chunks to the
   // client unchanged while accumulating the assembled reply to persist once

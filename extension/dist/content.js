@@ -1,4 +1,6 @@
 "use strict";
+let minalyActiveBusinessId = null;
+let minalyActiveBusinessName = null;
 const minalyReservedInstagramPaths = new Set(["accounts", "explore", "direct", "reels", "p", "stories"]);
 const minalyDefaultStages = ["first_message_sent", "conversation_in_progress", "value_content_sent", "call_proposed", "call_booked"];
 const minalyDefaultSources = ["instagram", "linkedin", "tiktok", "youtube", "x", "facebook", "email_newsletter", "ads", "bouche_a_oreille", "autre"];
@@ -265,6 +267,10 @@ async function minalyRequest(path, payload) {
         const result = await chrome.runtime.sendMessage({ type: "minaly-api-request", path, payload });
         if (!minalyIsRecord(result) || typeof result.status !== "number")
             return { status: 503, body: null };
+        if (typeof result.businessId === "string" && /^[0-9a-f-]{36}$/i.test(result.businessId))
+            minalyActiveBusinessId = result.businessId;
+        if (typeof result.businessName === "string" && result.businessName.trim())
+            minalyActiveBusinessName = result.businessName.trim().slice(0, 200);
         return { status: result.status, body: result.body ?? null };
     }
     catch {
@@ -558,7 +564,7 @@ function minalyLeadLink(leadId, crmUrl) {
     if (!origin)
         return null;
     const link = document.createElement("a");
-    link.href = new URL("/crm/leads/" + encodeURIComponent(leadId), origin).toString();
+    link.href = new URL((minalyActiveBusinessId ? "/b/" + minalyActiveBusinessId : "") + "/crm/leads/" + encodeURIComponent(leadId), origin).toString();
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.className = "minaly-secondary minaly-link";
@@ -603,7 +609,16 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, messageTe
     brandCopy.className = "minaly-brand-copy";
     const title = minalyElement("strong", "Minaly CRM");
     title.id = "minaly-panel-title";
-    brandCopy.append(title, minalyElement("span", "Capture depuis ton profil"));
+    const businessLabel = minalyActiveBusinessName ? document.createElement("button") : minalyElement("span", "Capture depuis ton profil");
+    if (businessLabel instanceof HTMLButtonElement) {
+        businessLabel.type = "button";
+        businessLabel.className = "minaly-business-switch";
+        businessLabel.textContent = minalyActiveBusinessName;
+        businessLabel.append(minalyIcon("refresh"));
+        businessLabel.addEventListener("click", onOpenAuth);
+    }
+    businessLabel.title = minalyActiveBusinessName ?? "";
+    brandCopy.append(title, businessLabel);
     brand.append(mark, brandCopy);
     const close = document.createElement("button");
     close.type = "button";
@@ -1066,6 +1081,10 @@ function minalyMount() {
 .minaly-brand-copy { display: grid; min-width: 0; gap: 1px; }
 .minaly-brand-copy strong { font-size: 14px; letter-spacing: -0.01em; }
 .minaly-brand-copy span, .minaly-helper { color: var(--minaly-text-muted); font-size: 11px; }
+.minaly-business-switch { display: flex; align-items: center; gap: 5px; max-width: 100%; padding: 2px 0; border: 0; background: transparent; color: var(--minaly-text-muted); font-size: 11px; text-align: left; cursor: pointer; }
+.minaly-business-switch:hover { color: var(--minaly-text); text-decoration: underline; }
+.minaly-business-switch:focus-visible { outline: 2px solid var(--minaly-accent); outline-offset: 2px; }
+.minaly-business-switch svg { width: 12px; height: 12px; flex-shrink: 0; }
 .minaly-close { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--minaly-text-muted); cursor: pointer; touch-action: manipulation; transition: background-color 180ms ease, color 180ms ease; }
 .minaly-close:hover { background: var(--minaly-surface-muted); color: var(--minaly-text); }
 .minaly-body { display: grid; gap: 12px; min-height: 0; overflow-y: auto; padding: 18px 16px 16px; overscroll-behavior: contain; }
@@ -1350,7 +1369,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
             return;
         }
         const origin = minalyReadCrmUrl(data.crmUrl) ?? "https://www.minaly.io";
-        successLeadUrl = `${origin}/crm/leads/${leadId}`;
+        successLeadUrl = `${origin}${minalyActiveBusinessId ? "/b/" + minalyActiveBusinessId : ""}/crm/leads/${leadId}`;
         const savedLead = minalyReadLead(data.lead, data.messageTestAssignment);
         if (savedLead)
             resolution = { kind: "known", lead: savedLead };

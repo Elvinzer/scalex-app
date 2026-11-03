@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createContext, runInContext } from "node:vm";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 type BackgroundMessageListener = (
   message: unknown,
@@ -10,11 +10,16 @@ type BackgroundMessageListener = (
 ) => boolean | void;
 
 const backgroundSource = readFileSync(new URL("./dist/background.js", import.meta.url), "utf8");
+const businessA = "22222222-2222-4222-8222-222222222222";
+const businessB = "33333333-3333-4333-8333-333333333333";
+function advisoryToken(businessId: string) { return `${Buffer.from(JSON.stringify({ accountId: businessId })).toString("base64url")}.test-signature`; }
 
-function createBackgroundFixture(fetcher: (input: string) => Promise<Response>) {
+function createBackgroundFixture(fetcher: (input: string, init?: RequestInit) => Promise<Response>) {
   const storage = new Map<string, unknown>([
     ["minalyCrmExtensionOrigin", "http://localhost:3000"],
-    ["minalyCrmExtensionToken", "expired-local-token"],
+    ["minalyCrmExtensionToken", advisoryToken(businessA)],
+    ["minalyCrmExtensionBusinessId", businessA],
+    ["minalyCrmExtensionBusinessName", "Business A"],
   ]);
   const listeners: BackgroundMessageListener[] = [];
   const chrome = {
@@ -32,7 +37,7 @@ function createBackgroundFixture(fetcher: (input: string) => Promise<Response>) 
       },
     },
   };
-  runInContext(backgroundSource, createContext({ chrome, fetch: fetcher, URL, Response }));
+  runInContext(backgroundSource, createContext({ chrome, fetch: fetcher, URL, Response, atob }));
   return { listeners, storage };
 }
 
@@ -56,7 +61,7 @@ describe("CRM extension network recovery", () => {
       requestedUrls.push(input);
       if (input === "http://localhost:3000/api/crm/extension/resolve") throw new Error("Local development server is unavailable.");
       if (input === "https://www.minaly.io/api/crm/extension/session") {
-        return new Response(JSON.stringify({ data: { extensionToken: "fresh-production-token" } }), { status: 200 });
+        return new Response(JSON.stringify({ data: { extensionToken: "fresh-production-token", businessId: businessA, businessName: "Business A" } }), { status: 200 });
       }
       if (input === "https://www.minaly.io/api/crm/extension/resolve") {
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
@@ -66,7 +71,7 @@ describe("CRM extension network recovery", () => {
 
     const result = await sendApiRequest(fixture.listeners) as { status: number; body: unknown };
 
-    expect(result).toEqual({ status: 200, body: { ok: true } });
+    expect(result).toEqual({ status: 200, body: { ok: true }, businessId: businessA, businessName: "Business A" });
     expect(requestedUrls).toEqual([
       "http://localhost:3000/api/crm/extension/resolve",
       "https://www.minaly.io/api/crm/extension/session",
@@ -74,5 +79,45 @@ describe("CRM extension network recovery", () => {
     ]);
     expect(fixture.storage.get("minalyCrmExtensionOrigin")).toBe("https://www.minaly.io");
     expect(fixture.storage.get("minalyCrmExtensionToken")).toBe("fresh-production-token");
+  });
+
+  it("renews the token business even when a different business is selected in the web app", async () => {
+    const renewals: unknown[] = [];
+    let attempts = 0;
+    const fixture = createBackgroundFixture(async (input, init) => {
+      if (input.endsWith("/session")) {
+        renewals.push(JSON.parse(String(init?.body)));
+        return new Response(JSON.stringify({ data: { extensionToken: advisoryToken(businessA), businessId: businessA, businessName: "Business A" } }));
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: attempts++ === 0 ? 401 : 200 });
+    });
+    fixture.storage.delete("minalyCrmExtensionBusinessId");
+    const response = await sendApiRequest(fixture.listeners);
+    expect(renewals).toEqual([{ businessId: businessA }]);
+    expect(response).toMatchObject({ status: 200, businessId: businessA });
+  });
+
+  it("refuses a renewal response for a different business", async () => {
+    const fixture = createBackgroundFixture(async (input, init) => {
+      if (input.endsWith("/session")) {
+        expect(JSON.parse(String(init?.body))).toEqual({ businessId: businessA });
+        return new Response(JSON.stringify({ data: { extensionToken: advisoryToken(businessB), businessId: businessB, businessName: "Business B" } }));
+      }
+      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+    });
+    await sendApiRequest(fixture.listeners);
+    expect(fixture.storage.get("minalyCrmExtensionBusinessId")).toBe(businessA);
+    expect(fixture.storage.get("minalyCrmExtensionToken")).not.toBe(advisoryToken(businessB));
+  });
+
+  it("does not select a business from browser cookies on first installation", async () => {
+    const fetcher = vi.fn<(input: string) => Promise<Response>>(async () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+    const fixture = createBackgroundFixture(fetcher);
+    fixture.storage.delete("minalyCrmExtensionBusinessId");
+    fixture.storage.delete("minalyCrmExtensionBusinessName");
+    fixture.storage.delete("minalyCrmExtensionToken");
+    await sendApiRequest(fixture.listeners);
+    expect(fetcher.mock.calls.every(([url]) => !String(url).endsWith("/session"))).toBe(true);
+    expect(fixture.storage.get("minalyCrmExtensionBusinessId")).toBeUndefined();
   });
 });

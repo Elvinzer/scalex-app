@@ -505,6 +505,20 @@
       "when": 1791300307838,
       "tag": "0071_track_crm_message_test_copies",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1793701618191,
+      "tag": "0072_independent_businesses",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1793702461757,
+      "tag": "0073_harden_business_control_records",
+      "breakpoints": true
     }
   ]
 }

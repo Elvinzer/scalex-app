@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { iclosedConnections, users } from "@/db/schema";
+import { iclosedConnections, businesses } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { encrypt } from "@/lib/crypto";
 import { requireUserId } from "@/lib/current-user";
@@ -92,7 +92,7 @@ export async function connectIclosed(formData: FormData): Promise<{ error: strin
     .returning({ id: iclosedConnections.id });
   if (!connection) throw new Error("iClosed connection could not be saved");
 
-  await db.update(users).set({ iclosedConnected: true }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ iclosedConnected: true }).where(eq(businesses.id, access.accountId));
 
   // Best-effort — the connection is already durably saved. An Inngest hiccup
   // must not fail a saved connection; the webhook just won't auto-register /
@@ -160,7 +160,7 @@ export async function disconnectIclosed(): Promise<{ error: string | null }> {
   // Freeze, never erase: past sales_calls stay as historical funnel data
   // (deliberately not deleted here) — only the live link is removed.
   await db.delete(iclosedConnections).where(eq(iclosedConnections.userId, access.accountId));
-  await db.update(users).set({ iclosedConnected: false }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ iclosedConnected: false }).where(eq(businesses.id, access.accountId));
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");

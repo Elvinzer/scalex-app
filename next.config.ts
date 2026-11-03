@@ -56,6 +56,8 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // Keep verification builds separate from the running Turbopack server.
+  distDir: process.env.MINALY_ISOLATED_BUILD === "1" ? ".next-verification" : ".next",
   // Silences workspace-root inference: a stray package-lock.json in the
   // user's home directory otherwise gets picked up as a false monorepo root.
   turbopack: {

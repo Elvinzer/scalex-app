@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import { getBusinessEntitlement } from "@/lib/businesses/entitlements";
 import { nativeBookingEvents, nativeBookingReminderDeliveries, nativeBookingReminderRules, nativeBookings, users } from "@/db/schema";
 import { decrypt } from "@/lib/crypto";
 import { ensureAccountBookingHandle } from "@/lib/native-booking/handle";
@@ -172,6 +173,10 @@ async function claimReminder(deliveryId: string) {
 }
 
 export async function deliverNativeBookingReminder(deliveryId: string) {
+  const [scope] = await db.select({ businessId: nativeBookings.userId }).from(nativeBookingReminderDeliveries)
+    .innerJoin(nativeBookings, eq(nativeBookings.id, nativeBookingReminderDeliveries.bookingId))
+    .where(eq(nativeBookingReminderDeliveries.id, deliveryId)).limit(1);
+  if (scope && !(await getBusinessEntitlement(scope.businessId)).active) return "deferred" as const;
   const row = await claimReminder(deliveryId);
   if (!row) return "skipped" as const;
   const ownerHandle = await ensureAccountBookingHandle(row.event.userId);
@@ -196,7 +201,7 @@ export async function deliverNativeBookingReminder(deliveryId: string) {
         to: row.booking.email,
         subject: renderedSubject,
         text: [`Bonjour ${row.booking.firstName},`, "", renderedMessage, context.meetingUrl ? `Lien de réunion : ${context.meetingUrl}` : "", management, "", "Minaly"].filter(Boolean).join("\n"),
-      });
+      }, { idempotencyKey: `native-booking-reminder:${deliveryId}` });
     }
     await db.update(nativeBookingReminderDeliveries).set({ status: "sent", sentAt: new Date(), lastError: null, updatedAt: new Date() }).where(eq(nativeBookingReminderDeliveries.id, deliveryId));
     return "sent" as const;

@@ -64,8 +64,8 @@ export default async function AdminSubscriptionDetailPage({ params }: AdminSubsc
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("subscriptions.customerAccount")}</p>
-            <h1 className="mt-1 text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{detail.displayName || detail.email}</h1>
-            {detail.displayName && <p className="mt-1 text-sm text-muted-foreground">{detail.email}</p>}
+            <h1 className="mt-1 text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">{detail.businessName}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{detail.email}</p>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-state-healthy/30 bg-state-healthy-bg px-3 py-1.5 text-xs font-bold text-state-healthy">
             <ShieldCheck className="size-4" aria-hidden="true" /> {t("subscriptions.founderSessionVerified")}
@@ -81,7 +81,7 @@ export default async function AdminSubscriptionDetailPage({ params }: AdminSubsc
                 <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{t("subscriptions.subscription")}</p>
                 <h2 id="subscription-summary-title" className="mt-1 text-lg font-bold">{t("subscriptions.billingState")}</h2>
               </div>
-              {subscription && <SubscriptionStatusBadge status={subscription.status} />}
+              {subscription && <SubscriptionStatusBadge status={subscription.paymentBlockedAt ? "past_due" : subscription.status} />}
             </div>
 
             {subscription ? (

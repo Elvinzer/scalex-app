@@ -1,0 +1,157 @@
+Disposable local migration verification. No remote database or vendor calls.
+
+$ generate full baseline from the pre-change schema
+129 tables
+acquisition_funnel_benchmarks 7 columns 1 indexes 1 fks
+acquisition_funnels 8 columns 0 indexes 0 fks
+activity_log 4 columns 0 indexes 1 fks
+ad_campaigns 13 columns 1 indexes 1 fks
+admin_ideas 8 columns 2 indexes 1 fks
+agent_chat_messages 7 columns 2 indexes 2 fks
+agents_registry 11 columns 0 indexes 0 fks
+benchmarks 4 columns 0 indexes 0 fks
+booking_page_settings 18 columns 0 indexes 1 fks
+business_levers 7 columns 1 indexes 1 fks
+business_profile 8 columns 0 indexes 1 fks
+calendly_connections 11 columns 0 indexes 1 fks
+client_journey_stage_history 6 columns 1 indexes 4 fks
+client_journeys 12 columns 3 indexes 3 fks
+client_milestones 8 columns 1 indexes 2 fks
+client_notes 6 columns 1 indexes 2 fks
+client_reminders 8 columns 1 indexes 2 fks
+closing_kpi_entries 8 columns 1 indexes 2 fks
+closing_videos 11 columns 2 indexes 2 fks
+content_posts 18 columns 2 indexes 1 fks
+content_recommendations 13 columns 1 indexes 1 fks
+conversations 9 columns 1 indexes 1 fks
+crm_actions 18 columns 5 indexes 5 fks
+crm_call_links 10 columns 3 indexes 5 fks
+crm_call_match_candidates 10 columns 3 indexes 2 fks
+crm_call_match_suggestions 17 columns 3 indexes 3 fks
+crm_imports 20 columns 2 indexes 2 fks
+crm_lead_events 11 columns 4 indexes 3 fks
+crm_lead_profiles 13 columns 5 indexes 2 fks
+crm_lead_stage_history 10 columns 2 indexes 4 fks
+crm_message_ab_test_assignments 12 columns 3 indexes 5 fks
+crm_message_ab_tests 14 columns 3 indexes 2 fks
+crm_responsibility_history 7 columns 2 indexes 5 fks
+data_imports 13 columns 1 indexes 1 fks
+diagnostics 6 columns 1 indexes 1 fks
+early_access_signups 15 columns 0 indexes 0 fks
+email_campaigns 13 columns 1 indexes 1 fks
+funnel_block_benchmarks 7 columns 1 indexes 1 fks
+funnel_blocks 10 columns 0 indexes 0 fks
+funnel_stage_insights 11 columns 1 indexes 1 fks
+iclosed_connections 10 columns 0 indexes 1 fks
+improvement_events 7 columns 2 indexes 1 fks
+improvement_initiatives 18 columns 3 indexes 5 fks
+initiative_measurements 21 columns 2 indexes 2 fks
+initiative_nudges 7 columns 2 indexes 2 fks
+initiative_weekly_focus 6 columns 2 indexes 2 fks
+insight_records 18 columns 4 indexes 1 fks
+instagram_connections 12 columns 0 indexes 1 fks
+instagram_post_insights 27 columns 2 indexes 1 fks
+journal_notes 4 columns 0 indexes 1 fks
+journey_columns 7 columns 2 indexes 1 fks
+lead_comments 5 columns 1 indexes 2 fks
+lead_stage_history 5 columns 1 indexes 1 fks
+leads 38 columns 11 indexes 6 fks
+lever_resources 7 columns 1 indexes 0 fks
+lever_starter_plans 3 columns 0 indexes 0 fks
+lever_starter_progress 4 columns 0 indexes 1 fks
+levers_catalog 15 columns 0 indexes 0 fks
+meta_ad_accounts 12 columns 2 indexes 2 fks
+meta_ad_action_logs 15 columns 2 indexes 2 fks
+meta_ad_metric_corrections 11 columns 1 indexes 3 fks
+meta_ad_metrics_daily 41 columns 2 indexes 2 fks
+meta_ad_sets 13 columns 2 indexes 3 fks
+meta_ad_touchpoints 14 columns 1 indexes 1 fks
+meta_ads 14 columns 2 indexes 4 fks
+meta_ads_connections 16 columns 0 indexes 1 fks
+meta_campaign_profiles 13 columns 1 indexes 2 fks
+meta_campaigns 20 columns 2 indexes 2 fks
+monthly_metrics 24 columns 1 indexes 1 fks
+native_booking_activities 12 columns 1 indexes 3 fks
+native_booking_availability 6 columns 2 indexes 1 fks
+native_booking_calendar_conflicts 6 columns 2 indexes 3 fks
+native_booking_calendar_settings 7 columns 2 indexes 3 fks
+native_booking_event_closers 8 columns 2 indexes 2 fks
+native_booking_events 27 columns 2 indexes 1 fks
+native_booking_exceptions 8 columns 1 indexes 1 fks
+native_booking_leads 34 columns 4 indexes 4 fks
+native_booking_links 14 columns 1 indexes 2 fks
+native_booking_notifications 9 columns 2 indexes 1 fks
+native_booking_questions 10 columns 2 indexes 1 fks
+native_booking_reminder_deliveries 10 columns 2 indexes 2 fks
+native_booking_reminder_rules 9 columns 2 indexes 1 fks
+native_bookings 42 columns 4 indexes 7 fks
+native_calendar_connections 14 columns 2 indexes 2 fks
+priority_rules 7 columns 0 indexes 0 fks
+processed_calendly_events 3 columns 0 indexes 0 fks
+processed_iclosed_events 3 columns 0 indexes 0 fks
+processed_stripe_events 3 columns 0 indexes 0 fks
+projects 9 columns 1 indexes 1 fks
+referral_attributions 5 columns 2 indexes 3 fks
+referral_codes 7 columns 1 indexes 1 fks
+referral_commissions 17 columns 2 indexes 4 fks
+referral_payouts 10 columns 1 indexes 1 fks
+referral_program_settings 5 columns 0 indexes 0 fks
+sales 25 columns 7 indexes 5 fks
+sales_call_comments 5 columns 1 indexes 2 fks
+sales_calls 28 columns 6 indexes 5 fks
+scale_score_history 4 columns 1 indexes 1 fks
+setters 7 columns 1 indexes 1 fks
+setting_kpi_entries 11 columns 1 indexes 2 fks
+shared_agent_usage 4 columns 1 indexes 1 fks
+staff_members 9 columns 1 indexes 2 fks
+streaks 12 columns 0 indexes 1 fks
+stripe_connections 13 columns 0 indexes 1 fks
+stripe_insight_runs 14 columns 1 indexes 1 fks
+stripe_transaction_refunds 11 columns 3 indexes 1 fks
+stripe_transactions 18 columns 4 indexes 1 fks
+subscription_plans 9 columns 0 indexes 0 fks
+subscriptions 12 columns 3 indexes 2 fks
+support_ticket_attachments 9 columns 2 indexes 2 fks
+support_ticket_events 8 columns 1 indexes 3 fks
+support_ticket_messages 7 columns 1 indexes 3 fks
+support_tickets 23 columns 5 indexes 4 fks
+team_member_roles 3 columns 0 indexes 2 fks
+team_members 11 columns 2 indexes 3 fks
+team_roles 8 columns 1 indexes 1 fks
+testimonials 15 columns 2 indexes 2 fks
+todos 9 columns 1 indexes 2 fks
+users 29 columns 1 indexes 1 fks
+video_attributions 7 columns 2 indexes 3 fks
+weekly_reports 8 columns 1 indexes 1 fks
+winning_patterns 8 columns 0 indexes 1 fks
+youtube_card_metrics 13 columns 2 indexes 1 fks
+youtube_connections 22 columns 0 indexes 1 fks
+youtube_end_screen_metrics 11 columns 2 indexes 1 fks
+youtube_reporting_jobs 12 columns 2 indexes 1 fks
+youtube_reporting_reports 11 columns 2 indexes 1 fks
+youtube_video_insights 28 columns 2 indexes 1 fks
+youtube_video_snapshots 10 columns 2 indexes 1 fks
+
+[✓] Your SQL migration file ➜ /var/folders/bz/x8fdzc7d0qzgq__v407cc9bc0000gn/T/minaly-migration-baseline-ddq0QX/baseline/0000_baseline.sql 🚀
+
+$ npm run db:migrate (first official run)
+
+> minaly-app@0.1.0 db:migrate
+> drizzle-kit migrate && node scripts/sync-platform-admins.mjs
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/Users/cedricbernard/Documents/Pro/scale x/scaleXapp/drizzle.config.ts'
+◇ injected env (23) from .env.local // tip: ⌘ override existing { override: true }
+Using 'pg' driver for database querying
+[⣷] applying migrations...[2K[1G[⣯] applying migrations...[2K[1G[✓] migrations applied successfully!Platform admin roster synchronized (1 entries).
+
+$ npm run db:migrate (second official run)
+
+> minaly-app@0.1.0 db:migrate
+> drizzle-kit migrate && node scripts/sync-platform-admins.mjs
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/Users/cedricbernard/Documents/Pro/scale x/scaleXapp/drizzle.config.ts'
+◇ injected env (23) from .env.local // tip: ⌘ override existing { override: true }
+Using 'pg' driver for database querying
+[⣷] applying migrations...[2K[1G[✓] migrations applied successfully!Platform admin roster synchronized (1 entries).

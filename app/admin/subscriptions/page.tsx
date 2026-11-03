@@ -62,8 +62,8 @@ function buildSubscriptionsHref(filters: AdminSubscriptionFilters, page: number)
 function AccountIdentity({ row }: { row: AdminSubscriptionListRow }) {
   return (
     <div className="min-w-0">
-      <p className="truncate font-bold">{row.displayName || row.email}</p>
-      {row.displayName && <p className="truncate text-xs text-muted-foreground">{row.email}</p>}
+      <p className="truncate font-bold">{row.businessName}</p>
+      <p className="truncate text-xs text-muted-foreground">{row.email}</p>
     </div>
   );
 }
@@ -76,7 +76,7 @@ function SubscriptionRowDetails({ row, noSubscription, endsOn }: { row: AdminSub
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <SubscriptionStatusBadge status={subscription.status} />
+      <SubscriptionStatusBadge status={subscription.paymentBlockedAt ? "past_due" : subscription.status} />
       {subscription.cancelAtPeriodEnd && (
         <span className="text-xs font-bold text-state-caution">
           {endsOn} {formatSubscriptionDate(subscription.currentPeriodEnd)}

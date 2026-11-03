@@ -4,6 +4,8 @@ import { getAiProvider } from "@/lib/ai-provider";
 import type { Locale } from "@/lib/i18n/config";
 
 import { NoAgentKeyAvailableError, resolveAgentKey, type AgentKey } from "./client";
+import { checkAndIncrementSharedUsage } from "./quota";
+import { recordAgentUsage } from "./usage";
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929";
@@ -12,9 +14,12 @@ const CONNECT_TIMEOUT_MS = 20_000;
 
 type FalcoMessage = { role: "user" | "assistant"; content: string };
 
-export type FalcoProvider =
+type FalcoUsageContext = { businessId?: string; actorUserId?: string; operation?: string };
+
+export type FalcoProvider = (
   | { kind: "anthropic"; source: AgentKey["source"]; apiKey: string; model: string }
-  | { kind: "groq"; apiKey: string; baseURL: string; model: string };
+  | { kind: "groq"; apiKey: string; baseURL: string; model: string }
+) & FalcoUsageContext;
 
 export type FalcoUsage = { inputTokens: number; outputTokens: number };
 
@@ -38,16 +43,79 @@ const anthropicStreamEventSchema = z.object({
 export async function resolveFalcoProvider(user: {
   id: string;
   anthropicApiKeyEncrypted: string | null;
-}): Promise<FalcoProvider> {
+}, options: { actorUserId?: string; operation?: string } = {}): Promise<FalcoProvider> {
+  const context = { businessId: user.id, ...options };
   try {
     const agentKey = await resolveAgentKey(user);
-    return { kind: "anthropic", source: agentKey.source, apiKey: agentKey.apiKey, model: ANTHROPIC_MODEL };
+    return { kind: "anthropic", source: agentKey.source, apiKey: agentKey.apiKey, model: ANTHROPIC_MODEL, ...context };
   } catch (error) {
     if (!(error instanceof NoAgentKeyAvailableError)) throw error;
   }
 
   const groq = getAiProvider();
-  return { kind: "groq", apiKey: groq.apiKey, baseURL: groq.baseURL, model: groq.model };
+  await checkAndIncrementSharedUsage(user.id);
+  return { kind: "groq", apiKey: groq.apiKey, baseURL: groq.baseURL, model: groq.model, ...context };
+}
+
+const completionUsageSchema = z.object({
+  input_tokens: z.number().int().nonnegative().optional(),
+  output_tokens: z.number().int().nonnegative().optional(),
+  prompt_tokens: z.number().int().nonnegative().optional(),
+  completion_tokens: z.number().int().nonnegative().optional(),
+});
+const responseUsageSchema = z.object({ usage: completionUsageSchema.optional(), x_groq: z.object({ usage: completionUsageSchema.optional() }).optional() });
+
+function readCompletionUsage(value: unknown): FalcoUsage | null {
+  const parsed = responseUsageSchema.safeParse(value);
+  if (!parsed.success) return null;
+  const usage = parsed.data.usage ?? parsed.data.x_groq?.usage;
+  const inputTokens = usage?.input_tokens ?? usage?.prompt_tokens;
+  const outputTokens = usage?.output_tokens ?? usage?.completion_tokens;
+  return inputTokens === undefined || outputTokens === undefined ? null : { inputTokens, outputTokens };
+}
+
+async function persistProviderUsage(provider: FalcoProvider, usage: FalcoUsage): Promise<void> {
+  if (!provider.businessId) return;
+  await recordAgentUsage({ businessId: provider.businessId, actorUserId: provider.actorUserId, keySource: provider.kind === "anthropic" ? provider.source : "shared", operation: provider.operation ?? "falco", ...usage });
+}
+
+// Observe OpenAI-compatible usage chunks without changing content deltas.
+export function observeFalcoStreamUsage(body: ReadableStream<Uint8Array>, onUsage: (usage: FalcoUsage) => void | Promise<void>): ReadableStream<Uint8Array> {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let usage: FalcoUsage | null = null;
+  function observe(event: string) {
+    const data = event.split("\n").find((line) => line.startsWith("data:"))?.slice(5).trim();
+    if (!data || data === "[DONE]") return;
+    try { usage = readCompletionUsage(JSON.parse(data)) ?? usage; } catch { /* Ignore provider heartbeat/non-JSON events. */ }
+  }
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      controller.enqueue(chunk);
+      buffer += decoder.decode(chunk, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() ?? "";
+      for (const event of events) observe(event);
+    },
+    async flush() { observe(buffer); if (usage) await onUsage(usage); },
+  }));
+}
+
+function withStreamUsage(response: Response, provider: FalcoProvider): Response {
+  if (!response.ok || !response.body) return response;
+  const body = provider.kind === "anthropic"
+    ? transformAnthropicStream(response.body, (usage) => persistProviderUsage(provider, usage))
+    : observeFalcoStreamUsage(response.body, (usage) => persistProviderUsage(provider, usage));
+  return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+}
+
+async function withJsonUsage(response: Response, provider: FalcoProvider): Promise<Response> {
+  if (!response.ok || !provider.businessId) return response;
+  try {
+    const usage = readCompletionUsage(await response.clone().json());
+    if (usage) await persistProviderUsage(provider, usage);
+  } catch { console.warn("[agent] provider usage unavailable", { businessId: provider.businessId, operation: provider.operation ?? "falco" }); }
+  return response;
 }
 
 export async function requestFalcoStream(
@@ -75,7 +143,7 @@ export async function requestFalcoStream(
 
   try {
     if (provider.kind === "anthropic") {
-      return await fetch(ANTHROPIC_MESSAGES_URL, {
+      const response = await fetch(ANTHROPIC_MESSAGES_URL, {
         method: "POST",
         headers: {
           "x-api-key": provider.apiKey,
@@ -92,19 +160,22 @@ export async function requestFalcoStream(
         }),
         signal: controller.signal,
       });
+      return withStreamUsage(response, provider);
     }
 
-    return await fetch(provider.baseURL, {
+    const response = await fetch(provider.baseURL, {
       method: "POST",
       headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: provider.model,
         stream: true,
+        stream_options: { include_usage: true },
         ...(safeTemperature === undefined ? {} : { temperature: safeTemperature }),
         messages: [{ role: "system", content: systemPrompt }, ...effectiveMessages],
       }),
       signal: controller.signal,
     });
+    return withStreamUsage(response, provider);
   } finally {
     // The timeout protects connection establishment only. Once headers arrive,
     // the client-side stall timeout is responsible for a stream that pauses.
@@ -125,7 +196,7 @@ export async function requestFalcoJson(
 
   try {
     if (provider.kind === "anthropic") {
-      return await fetch(ANTHROPIC_MESSAGES_URL, {
+      const response = await fetch(ANTHROPIC_MESSAGES_URL, {
         method: "POST",
         headers: {
           "x-api-key": provider.apiKey,
@@ -141,9 +212,10 @@ export async function requestFalcoJson(
         }),
         signal: controller.signal,
       });
+      return withJsonUsage(response, provider);
     }
 
-    return await fetch(provider.baseURL, {
+    const response = await fetch(provider.baseURL, {
       method: "POST",
       headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -158,6 +230,7 @@ export async function requestFalcoJson(
       }),
       signal: controller.signal,
     });
+    return withJsonUsage(response, provider);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -165,7 +238,7 @@ export async function requestFalcoJson(
 
 export function transformAnthropicStream(
   body: ReadableStream<Uint8Array>,
-  onUsage: (usage: FalcoUsage) => void
+  onUsage: (usage: FalcoUsage) => void | Promise<void>
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -216,12 +289,12 @@ export function transformAnthropicStream(
         buffer = events.pop() ?? "";
         for (const event of events) emitEvent(event, controller);
       },
-      flush(controller) {
+      async flush(controller) {
         const finalBuffer = buffer.trim();
         if (finalBuffer) emitEvent(finalBuffer, controller);
         if (!sentDone) controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         const usage = { inputTokens, outputTokens };
-        onUsage(usage);
+        await onUsage(usage);
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ usage })}\n\n`));
       },
     })

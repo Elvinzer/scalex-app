@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { BusinessLink as Link, useBusinessPathname } from "@/components/businesses/business-scope";
 import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 
@@ -14,7 +13,7 @@ export type PillarTab = { href: string; label: string };
 // onValueChange, so the underline always reflects the actual URL (works on
 // direct deep links too, not just in-app clicks).
 export function PillarTabs({ tabs, singleRowBelowLg = false }: { tabs: PillarTab[]; singleRowBelowLg?: boolean }) {
-  const pathname = usePathname();
+  const pathname = useBusinessPathname();
   const t = useTranslations("navigation");
   const navRef = useRef<HTMLElement>(null);
   const activeTabRef = useRef<HTMLAnchorElement>(null);

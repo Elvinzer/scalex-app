@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-03T11:04:42.745Z",
+  "result": "passed",
+  "localSyntheticFixturesOnly": true,
+  "tokenLogged": false,
+  "checks": [
+    "active owner receives a session pinned to the selected business",
+    "another owner's business is denied",
+    "a forged browser business header is discarded",
+    "conflicting explicit billing targets are denied",
+    "invalid OAuth state returns locally before contacting a provider",
+    "signed extension requests retain their business despite a different referring tab",
+    "suspension rejects both an existing signed token and its renewal",
+    "verified restored entitlement permits the existing pinned session again",
+    "get_compilation_issues reports no errors",
+    "get_errors reports no errors"
+  ]
+}

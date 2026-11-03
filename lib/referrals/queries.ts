@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
+  businesses,
   referralAttributions,
   referralCodes,
   referralCommissions,
@@ -135,7 +136,8 @@ export async function getReferralDashboard(accountId: string): Promise<ReferralD
         subscriptionStatus: subscriptions.status,
       })
       .from(referralAttributions)
-      .innerJoin(users, eq(referralAttributions.referredAccountId, users.id))
+      .innerJoin(businesses, eq(referralAttributions.referredAccountId, businesses.id))
+      .innerJoin(users, eq(businesses.ownerUserId, users.id))
       .leftJoin(subscriptions, eq(referralAttributions.referredAccountId, subscriptions.userId))
       .where(eq(referralAttributions.referrerAccountId, accountId))
       .orderBy(desc(referralAttributions.createdAt)),
@@ -151,7 +153,8 @@ export async function getReferralDashboard(accountId: string): Promise<ReferralD
         createdAt: referralCommissions.createdAt,
       })
       .from(referralCommissions)
-      .innerJoin(users, eq(referralCommissions.referredAccountId, users.id))
+      .innerJoin(businesses, eq(referralCommissions.referredAccountId, businesses.id))
+      .innerJoin(users, eq(businesses.ownerUserId, users.id))
       .where(eq(referralCommissions.referrerAccountId, accountId))
       .orderBy(desc(referralCommissions.createdAt))
       .limit(100),
@@ -202,7 +205,8 @@ export async function getAdminReferralData(): Promise<{
         commissionRateBps: referralCodes.commissionRateBps,
       })
       .from(referralCodes)
-      .innerJoin(users, eq(referralCodes.accountId, users.id))
+      .innerJoin(businesses, eq(referralCodes.accountId, businesses.id))
+      .innerJoin(users, eq(businesses.ownerUserId, users.id))
       .orderBy(desc(referralCodes.createdAt)),
     db
       .select({
@@ -228,7 +232,8 @@ export async function getAdminReferralData(): Promise<{
         amountCents: sql<number>`coalesce(sum(${referralCommissions.commissionAmountCents}), 0)::int`,
       })
       .from(referralCommissions)
-      .innerJoin(users, eq(referralCommissions.referrerAccountId, users.id))
+      .innerJoin(businesses, eq(referralCommissions.referrerAccountId, businesses.id))
+      .innerJoin(users, eq(businesses.ownerUserId, users.id))
       .where(eq(referralCommissions.status, "available"))
       .groupBy(referralCommissions.referrerAccountId, users.email, referralCommissions.currency),
   ]);

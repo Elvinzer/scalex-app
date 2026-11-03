@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses } from "@/db/schema";
 import { aggregatePeriodTotals } from "@/lib/diagnostic/aggregate";
 import { getDiagnosticBenchmarks } from "@/lib/diagnostic/benchmarks";
 import { lastCompletedMonths, type MonthWindow } from "@/lib/diagnostic/completed-months";
@@ -62,7 +62,7 @@ export async function calculateRateSnapshot(accountId: string, metricKey: string
   if (!period) return null;
   const data = await loadKpiData(accountId);
   const { allSettingEntries, allClosingEntries, allMonthlyRows } = data;
-  const [user] = await db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1);
+  const [user] = await db.select({ sector: businesses.sector }).from(businesses).where(eq(businesses.id, accountId)).limit(1);
   const benchmarks = await getDiagnosticBenchmarks(user?.sector ?? null);
   const totals = aggregatePeriodTotals({
     months,

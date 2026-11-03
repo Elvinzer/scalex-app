@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, nativeBookingQuestions, nativeBookingReminderRules, nativeBookings, users } from "@/db/schema";
+import { nativeBookingAvailability, nativeBookingEventClosers, nativeBookingEvents, nativeBookingExceptions, nativeBookingLeads, nativeBookingLinks, nativeBookingQuestions, nativeBookingReminderRules, nativeBookings, businesses } from "@/db/schema";
 import { canCreateNativeBookingEvent, getNativeBookingEntitlements } from "@/lib/billing/plan-gate";
 import { getActiveCloser } from "@/lib/closers/queries";
 import { requireUserId } from "@/lib/current-user";
@@ -190,10 +190,10 @@ export async function updateBookingHandleAction(input: unknown): Promise<ActionR
 
   try {
     const [updated] = await db
-      .update(users)
+      .update(businesses)
       .set({ bookingHandle: parsed.data.handle })
-      .where(eq(users.id, access.accountId))
-      .returning({ bookingHandle: users.bookingHandle });
+      .where(eq(businesses.id, access.accountId))
+      .returning({ bookingHandle: businesses.bookingHandle });
     if (!updated) return { error: "Compte introuvable." };
   } catch (error) {
     // 23505 = unique_violation : le handle est déjà pris par un autre compte.

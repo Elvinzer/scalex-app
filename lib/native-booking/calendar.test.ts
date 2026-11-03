@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbMocks = vi.hoisted(() => ({ update: vi.fn(), set: vi.fn(), where: vi.fn() }));
+const entitlement = vi.hoisted(() => vi.fn(async () => ({ active: true })));
 
 vi.mock("@/db", () => ({ db: { update: dbMocks.update } }));
+vi.mock("@/lib/businesses/entitlements", () => ({ getBusinessEntitlement: entitlement }));
 
 import {
   createExternalCalendarEvent,
@@ -47,6 +49,7 @@ function restoreEnvironmentValue(key: string, value: string | undefined) {
 
 describe("native booking calendar adapter", () => {
   beforeEach(() => {
+    entitlement.mockResolvedValue({ active: true });
     process.env.NATIVE_BOOKING_CALENDAR_TEST_MODE = "1";
     dbMocks.update.mockReset().mockReturnValue({ set: dbMocks.set });
     dbMocks.set.mockReset().mockReturnValue({ where: dbMocks.where });
@@ -67,6 +70,15 @@ describe("native booking calendar adapter", () => {
       { id: "fixture-primary", name: "Agenda fixture principale", isPrimary: true, canWrite: true },
       { id: "fixture-team", name: "Agenda fixture équipe", isPrimary: false, canWrite: true },
     ]);
+  });
+
+  it("prevents calendar writes for a suspended business before calling the provider", async () => {
+    entitlement.mockResolvedValue({ active: false });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(cancelExternalCalendarEvent(baseConnection, "event-id", "calendar-id")).rejects.toThrow("business_suspended");
+    expect(entitlement).toHaveBeenCalledWith(baseConnection.userId);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("resolves the account primary calendar instead of a secondary calendar", () => {

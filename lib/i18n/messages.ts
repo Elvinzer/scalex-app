@@ -15,6 +15,8 @@ export const NAMESPACES = [
   "pipeline",
   "crm",
   "business",
+  "businesses",
+  "billing",
   "data",
   "integrations",
   "sales",

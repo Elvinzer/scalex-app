@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { dataImports, monthlyMetrics, sales } from "@/db/schema";
-import { getUserById } from "@/lib/current-user";
+import { getBusinessAccountById } from "@/lib/current-user";
 import { getSales } from "@/lib/sales/queries";
 import { isInstallmentPaymentSale } from "@/lib/sales/types";
 import { aggregateSalesCallsByMonth, monthKey } from "@/lib/monthly-metrics/call-source";
@@ -51,7 +51,7 @@ async function protectedFieldsForMonth(accountId: string, year: number, month: n
     getClosingKpiEntries(accountId),
     getSalesCallKpiRecords(accountId),
   ]);
-  const [accountUser, allSales] = await Promise.all([getUserById(accountId), getSales(accountId)]);
+  const [accountUser, allSales] = await Promise.all([getBusinessAccountById(accountId), getSales(accountId)]);
   const dailySetting = allSetting.filter((entry) => entry.date >= range.from && entry.date <= range.to);
   const dailyClosing = allClosing.filter((entry) => entry.date >= range.from && entry.date <= range.to);
   const from = Date.UTC(year, month - 1, 1);

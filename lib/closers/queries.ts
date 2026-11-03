@@ -2,7 +2,7 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import { cache } from "react";
 
 import { db } from "@/db";
-import { teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
+import { businesses, teamMemberRoles, teamMembers, teamRoles, users } from "@/db/schema";
 
 import type { ActiveCloser, CloserRow } from "./types";
 
@@ -15,8 +15,9 @@ export const getClosers = cache(async (accountId: string): Promise<CloserRow[]> 
   const [[owner], teamCloserRows] = await Promise.all([
     db
       .select({ id: users.id, displayName: users.displayName, email: users.email })
-      .from(users)
-      .where(eq(users.id, accountId))
+      .from(businesses)
+      .innerJoin(users, eq(users.id, businesses.ownerUserId))
+      .where(eq(businesses.id, accountId))
       .limit(1),
     db
       .select({

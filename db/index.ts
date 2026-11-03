@@ -7,6 +7,12 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set");
 }
 
+// Disposable local Postgres can explicitly disable TLS. Remote databases
+// always retain encrypted transport, even if their URL asks otherwise.
+const databaseTarget = new URL(connectionString);
+const localPlaintext = ["localhost", "127.0.0.1", "[::1]"].includes(databaseTarget.hostname)
+  && databaseTarget.searchParams.get("sslmode") === "disable";
+
 const configuredPoolMax = Number.parseInt(process.env.DB_POOL_MAX ?? "2", 10);
 const configuredPoolMaxIsValid = Number.isInteger(configuredPoolMax) && configuredPoolMax >= 1 && configuredPoolMax <= 20;
 const poolMax = configuredPoolMaxIsValid ? configuredPoolMax : 2;
@@ -24,7 +30,7 @@ function createClient() {
     pipeline: false,
     max: poolMax,
     // Equivalent to the previous ssl:"require": always encrypt the socket.
-    ssl: { rejectUnauthorized: false },
+    ssl: localPlaintext ? false : { rejectUnauthorized: false },
     idleTimeoutMillis: 20_000,
     connectionTimeoutMillis: 5_000,
     query_timeout: 10_000,

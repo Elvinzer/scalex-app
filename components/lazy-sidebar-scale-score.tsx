@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useBusinessPathname } from "@/components/businesses/business-scope";
 import { useEffect, useState } from "react";
 
 import { ScaleScoreBadge } from "@/components/scale-score-badge";
@@ -8,7 +8,7 @@ import type { SidebarScaleScoreData } from "@/components/app-sidebar-with-scale-
 import { loadSidebarScaleScore } from "@/lib/diagnostic/sidebar-scale-score-action";
 
 export function LazySidebarScaleScore() {
-  const pathname = usePathname();
+  const pathname = useBusinessPathname();
   const [data, setData] = useState<SidebarScaleScoreData | null>(null);
 
   useEffect(() => {

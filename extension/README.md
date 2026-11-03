@@ -37,6 +37,9 @@ La version `0.3.9` attend l’identité chargée tardivement et recrée le bouto
 Instagram retire son élément pendant une navigation.
 La version `0.3.10` débloque le bouton quand l’identité de la conversation
 arrive tardivement et permet de changer l’étape d’un lead avec une variante A/B.
+La version `0.3.11` demande de choisir le business lors de la connexion et
+conserve ce choix pendant le renouvellement de session. Le nom affiché en haut
+du panneau permet de reconnecter l’extension à un autre business.
 
 ## Construire le package local
 

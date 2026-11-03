@@ -6,10 +6,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
+import { recordAgentUsage } from "@/lib/agent/usage";
 import {
   funnelStageInsights,
   improvementEvents,
-  users,
+  businesses,
 } from "@/db/schema";
 import { resolveAgentKey } from "@/lib/agent/client";
 import { generateStageInsight } from "@/lib/agent/insight";
@@ -133,8 +134,8 @@ export async function generateFunnelStageInsight(
 
   const [user] = await db
     .select()
-    .from(users)
-    .where(eq(users.id, accountId))
+    .from(businesses)
+    .where(eq(businesses.id, accountId))
     .limit(1);
   if (!user) {
     return { insightText: null, error: "Utilisateur introuvable" };
@@ -201,9 +202,9 @@ export async function generateFunnelStageInsight(
       error instanceof Anthropic.AuthenticationError
     ) {
       await db
-        .update(users)
+        .update(businesses)
         .set({ anthropicApiKeyInvalid: true })
-        .where(eq(users.id, accountId));
+        .where(eq(businesses.id, accountId));
       revalidatePath("/settings");
       return {
         insightText: null,
@@ -216,6 +217,8 @@ export async function generateFunnelStageInsight(
       error: "La génération de l'insight a échoué, réessaie.",
     };
   }
+
+  await recordAgentUsage({ businessId: accountId, actorUserId: userId, keySource: agentKey.source, operation: "funnel-stage-insight", inputTokens: result.inputTokens, outputTokens: result.outputTokens });
 
   const [savedInsight] = await db
     .insert(funnelStageInsights)

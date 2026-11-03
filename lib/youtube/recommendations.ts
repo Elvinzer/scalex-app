@@ -1,10 +1,11 @@
+import { getBusinessAccountById } from "@/lib/current-user";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getContentPosts } from "@/lib/content-posts/queries";
-import { contentRecommendations, users, winningPatterns } from "@/db/schema";
+import { contentRecommendations, winningPatterns } from "@/db/schema";
 import { requestFalcoJson, resolveFalcoProvider } from "@/lib/agent/falco-provider";
 import { falcoLanguageInstruction } from "@/lib/agent/language-instruction";
 import { describeBusinessContext } from "@/lib/improve-prompt-builder";
@@ -338,15 +339,11 @@ function parseJsonText(content: string): unknown {
 }
 
 async function callFalcoJson(providerUserId: string, prompt: string): Promise<ModelResult> {
-  const [user] = await db
-    .select({ id: users.id, anthropicApiKeyEncrypted: users.anthropicApiKeyEncrypted, locale: users.locale })
-    .from(users)
-    .where(eq(users.id, providerUserId))
-    .limit(1);
+  const user = await getBusinessAccountById(providerUserId);
   const provider = await resolveFalcoProvider({
     id: providerUserId,
     anthropicApiKeyEncrypted: user?.anthropicApiKeyEncrypted ?? null,
-  });
+  }, { operation: "youtube-recommendation" });
   const locale = isLocale(user?.locale) ? user.locale : DEFAULT_LOCALE;
   const response = await requestFalcoJson(
     provider,

@@ -153,7 +153,7 @@ export async function analyzeCallWithFalco(callId: string): Promise<{ error: str
   try {
     const { user } = await getCurrentUser();
     if (!user) return { error: "Compte utilisateur introuvable." };
-    provider = await resolveFalcoProvider({ id: user.id, anthropicApiKeyEncrypted: user.anthropicApiKeyEncrypted });
+    provider = await resolveFalcoProvider({ id: user.id, anthropicApiKeyEncrypted: user.anthropicApiKeyEncrypted }, { actorUserId: userId, operation: "call-analysis" });
   } catch (error) {
     return { error: errorMessage(error, "Falco n’est pas configuré pour le moment.") };
   }

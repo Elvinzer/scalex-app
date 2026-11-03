@@ -1,4 +1,5 @@
 import { tryDecrypt } from "@/lib/crypto";
+import { getBusinessEntitlement } from "@/lib/businesses/entitlements";
 
 import { checkAndIncrementSharedUsage } from "./quota";
 
@@ -20,6 +21,9 @@ export async function resolveAgentKey(user: {
   id: string;
   anthropicApiKeyEncrypted: string | null;
 }): Promise<AgentKey> {
+  if (!(await getBusinessEntitlement(user.id)).active) {
+    throw new Error("business_suspended");
+  }
   if (user.anthropicApiKeyEncrypted) {
     // tryDecrypt : une clé BYOK illisible (ENCRYPTION_KEY qui a tourné, donnée
     // corrompue) ne doit pas casser l'appel agent — on la traite comme "pas de

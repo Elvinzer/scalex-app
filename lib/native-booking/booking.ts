@@ -1,7 +1,8 @@
 import { and, asc, eq, gte, gt, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import {
+import { getBusinessEntitlement } from "@/lib/businesses/entitlements";
+import { businesses,
   nativeBookingAvailability,
   nativeBookingActivities,
   nativeBookingEventClosers,
@@ -113,10 +114,10 @@ async function getPublicNativeBookingEvent(handle: string, slug: string): Promis
   const [row] = await db
     .select({ event: nativeBookingEvents })
     .from(nativeBookingEvents)
-    .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
-    .where(and(eq(users.bookingHandle, handle), eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
+    .innerJoin(businesses, eq(businesses.id, nativeBookingEvents.userId))
+    .where(and(eq(businesses.bookingHandle, handle), eq(nativeBookingEvents.slug, slug), eq(nativeBookingEvents.status, "active")))
     .limit(1);
-  return row?.event ?? null;
+  return row && (await getBusinessEntitlement(row.event.userId)).active ? row.event : null;
 }
 
 async function createNativeBookingInternal(
@@ -614,6 +615,7 @@ export async function retryNativeBookingCalendarSync(bookingId: string, notifica
     .where(eq(nativeBookings.id, bookingId))
     .limit(1);
   if (!row) return "skipped";
+  if (!(await getBusinessEntitlement(row.booking.userId)).active) return "skipped";
   if (!row.booking.calendarConnectionId) return "skipped";
 
   const [connection] = await db

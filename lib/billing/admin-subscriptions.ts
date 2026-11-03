@@ -7,14 +7,13 @@ import {
   ilike,
   isNull,
   ne,
-  notExists,
   or,
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { subscriptionPlans, subscriptions, teamMembers, users } from "@/db/schema";
+import { businesses, subscriptionPlans, subscriptions, teamMembers, users } from "@/db/schema";
 import { getNativeBookingUsage } from "@/lib/billing/plan-gate";
 import { parsePlanFeatures, type PlanFeatures } from "@/lib/billing/plan-schema";
 
@@ -47,6 +46,7 @@ export type AdminSubscriptionFilters = z.infer<typeof searchParamsSchema>;
 
 export type AdminSubscriptionListRow = {
   accountId: string;
+  businessName: string;
   email: string;
   displayName: string | null;
   accountCreatedAt: Date;
@@ -105,12 +105,7 @@ function escapeLike(value: string): string {
 }
 
 function ownerAccountCondition() {
-  return notExists(
-    db
-      .select({ id: teamMembers.id })
-      .from(teamMembers)
-      .where(and(eq(teamMembers.memberUserId, users.id), ne(teamMembers.status, "removed")))
-  );
+  return ne(businesses.status, "archived");
 }
 
 function buildListConditions(filters: AdminSubscriptionFilters) {
@@ -119,9 +114,10 @@ function buildListConditions(filters: AdminSubscriptionFilters) {
   if (filters.q) {
     const pattern = `%${escapeLike(filters.q)}%`;
     const searchCondition = or(
+      ilike(businesses.name, pattern),
       ilike(users.email, pattern),
       ilike(users.displayName, pattern),
-      ilike(users.stripeCustomerId, pattern),
+      ilike(businesses.stripeCustomerId, pattern),
       ilike(subscriptions.stripeCustomerId, pattern),
       ilike(subscriptions.stripeSubscriptionId, pattern)
     );
@@ -148,11 +144,11 @@ function buildListConditions(filters: AdminSubscriptionFilters) {
 }
 
 function listOrder(filters: AdminSubscriptionFilters) {
-  if (filters.sort === "email") return [asc(users.email), desc(users.createdAt)];
+  if (filters.sort === "email") return [asc(users.email), desc(businesses.createdAt)];
   if (filters.sort === "period") {
     return [sql`${subscriptions.currentPeriodEnd} desc nulls last`, asc(users.email)];
   }
-  return [desc(users.createdAt), asc(users.email)];
+  return [desc(businesses.createdAt), asc(users.email)];
 }
 
 export async function getAdminSubscriptionPlans() {
@@ -163,8 +159,9 @@ export async function getAdminSubscriptionList(filters: AdminSubscriptionFilters
   const where = buildListConditions(filters);
   const [countRow] = await db
     .select({ value: count() })
-    .from(users)
-    .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+    .from(businesses)
+    .innerJoin(users, eq(businesses.ownerUserId, users.id))
+    .leftJoin(subscriptions, eq(subscriptions.userId, businesses.id))
     .where(where);
 
   const total = Number(countRow?.value ?? 0);
@@ -173,17 +170,19 @@ export async function getAdminSubscriptionList(filters: AdminSubscriptionFilters
   const rows = await db
     .select({
       owner: {
-        id: users.id,
+        id: businesses.id,
+        businessName: businesses.name,
         email: users.email,
         displayName: users.displayName,
-        createdAt: users.createdAt,
-        stripeCustomerId: users.stripeCustomerId,
+        createdAt: businesses.createdAt,
+        stripeCustomerId: businesses.stripeCustomerId,
       },
       subscription: subscriptions,
       plan: subscriptionPlans,
     })
-    .from(users)
-    .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+    .from(businesses)
+    .innerJoin(users, eq(businesses.ownerUserId, users.id))
+    .leftJoin(subscriptions, eq(subscriptions.userId, businesses.id))
     .leftJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
     .where(where)
     .orderBy(...listOrder(filters))
@@ -193,6 +192,7 @@ export async function getAdminSubscriptionList(filters: AdminSubscriptionFilters
   return {
     rows: rows.map((row): AdminSubscriptionListRow => ({
       accountId: row.owner.id,
+      businessName: row.owner.businessName,
       email: row.owner.email,
       displayName: row.owner.displayName,
       accountCreatedAt: row.owner.createdAt,
@@ -208,8 +208,9 @@ export async function getAdminSubscriptionList(filters: AdminSubscriptionFilters
 export async function getAdminSubscriptionSummary(): Promise<AdminSubscriptionSummary> {
   const rows = await db
     .select({ subscription: subscriptions })
-    .from(users)
-    .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+    .from(businesses)
+    .innerJoin(users, eq(businesses.ownerUserId, users.id))
+    .leftJoin(subscriptions, eq(subscriptions.userId, businesses.id))
     .where(ownerAccountCondition());
 
   let activeCount = 0;
@@ -225,13 +226,14 @@ export async function getAdminSubscriptionSummary(): Promise<AdminSubscriptionSu
       continue;
     }
 
-    if (subscription.status === "active" || subscription.status === "trialing") {
+    if ((subscription.status === "active" || subscription.status === "trialing") && !subscription.paymentBlockedAt
+      && (!subscription.currentPeriodEnd || subscription.currentPeriodEnd > new Date())) {
       activeCount += 1;
       if (subscription.priceMonthlyCents === null) unknownAmountCount += 1;
       else projectedMrrCents += subscription.priceMonthlyCents;
     }
 
-    if (subscription.status === "past_due" || subscription.status === "unpaid") pastDueCount += 1;
+    if (subscription.paymentBlockedAt || subscription.status === "past_due" || subscription.status === "unpaid") pastDueCount += 1;
   }
 
   return {
@@ -248,19 +250,21 @@ export async function getAdminSubscriptionDetail(accountId: string): Promise<Adm
   const [row] = await db
     .select({
       owner: {
-        id: users.id,
+        id: businesses.id,
+        businessName: businesses.name,
         email: users.email,
         displayName: users.displayName,
-        createdAt: users.createdAt,
-        stripeCustomerId: users.stripeCustomerId,
+        createdAt: businesses.createdAt,
+        stripeCustomerId: businesses.stripeCustomerId,
       },
       subscription: subscriptions,
       plan: subscriptionPlans,
     })
-    .from(users)
-    .leftJoin(subscriptions, eq(subscriptions.userId, users.id))
+    .from(businesses)
+    .innerJoin(users, eq(businesses.ownerUserId, users.id))
+    .leftJoin(subscriptions, eq(subscriptions.userId, businesses.id))
     .leftJoin(subscriptionPlans, eq(subscriptionPlans.id, subscriptions.planId))
-    .where(and(eq(users.id, accountId), ownerAccountCondition()))
+    .where(and(eq(businesses.id, accountId), ownerAccountCondition()))
     .limit(1);
 
   if (!row) return null;
@@ -275,6 +279,7 @@ export async function getAdminSubscriptionDetail(accountId: string): Promise<Adm
 
   return {
     accountId: row.owner.id,
+    businessName: row.owner.businessName,
     email: row.owner.email,
     displayName: row.owner.displayName,
     accountCreatedAt: row.owner.createdAt,

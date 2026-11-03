@@ -3,6 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { db } from "@/db";
@@ -10,6 +11,7 @@ import {
   adCampaigns,
   businessLevers,
   businessProfile,
+  businesses,
   closingKpiEntries,
   closingVideos,
   contentPosts,
@@ -23,9 +25,7 @@ import {
   sales,
   scaleScoreHistory,
   settingKpiEntries,
-  sharedAgentUsage,
   stripeConnections,
-  subscriptions,
   teamMembers,
   teamRoles,
   todos,
@@ -60,6 +60,9 @@ export async function saveAnthropicKey(
     return { error: "Session expirée, reconnecte-toi." };
   }
 
+  const access = await requireOwner(data.claims.sub as string);
+  if (!access) return { error: "Action réservée au propriétaire du compte." };
+
   const parsed = apiKeySchema.safeParse(formData.get("apiKey"));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Clé invalide" };
@@ -80,9 +83,9 @@ export async function saveAnthropicKey(
   }
 
   await db
-    .update(users)
+    .update(businesses)
     .set({ anthropicApiKeyEncrypted: encrypt(parsed.data), anthropicApiKeyInvalid: false })
-    .where(eq(users.id, data.claims.sub as string));
+    .where(eq(businesses.id, access.accountId));
 
   revalidatePath("/settings");
   return { error: null };
@@ -219,7 +222,7 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
     .where(and(eq(monthlyMetrics.userId, access.accountId), eq(monthlyMetrics.newCustomersSource, "stripe")));
 
   await db.delete(stripeConnections).where(eq(stripeConnections.userId, access.accountId));
-  await db.update(users).set({ stripeConnectId: null }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ stripeConnectId: null }).where(eq(businesses.id, access.accountId));
 
   revalidatePath("/settings");
   revalidatePath("/integrations");
@@ -230,14 +233,8 @@ export async function disconnectStripe(): Promise<{ error: string | null }> {
   return { error: null };
 }
 
-// Wipes every piece of business/diagnostic/journal/team data for this
-// account and resets the users row to a fresh-signup state — but
-// deliberately NEVER touches anthropicApiKeyEncrypted/Invalid,
-// stripeConnectId/stripe_connections, or stripeCustomerId/subscriptions:
-// the BYOK key, Stripe Connect link, and paid Minaly subscription are
-// account-level infrastructure, not "business data", and a reset must not
-// silently kill a subscription the user is still paying for. Contrast with
-// deleteAccount below, which does wipe those (by design, via cascade).
+// Reset the selected business while retaining its credentials and billing.
+// Personal preferences and every other business remain independent.
 export async function resetAccountData(): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
@@ -265,7 +262,6 @@ export async function resetAccountData(): Promise<{ error: string | null }> {
     await tx.delete(businessLevers).where(eq(businessLevers.userId, accountId));
     await tx.delete(dataImports).where(eq(dataImports.userId, accountId));
     await tx.delete(monthlyMetrics).where(eq(monthlyMetrics.userId, accountId));
-    await tx.delete(sharedAgentUsage).where(eq(sharedAgentUsage.userId, accountId));
     await tx.delete(funnelStageInsights).where(eq(funnelStageInsights.userId, accountId));
     await tx.delete(businessProfile).where(eq(businessProfile.userId, accountId));
     await tx.delete(closingKpiEntries).where(eq(closingKpiEntries.userId, accountId));
@@ -276,18 +272,16 @@ export async function resetAccountData(): Promise<{ error: string | null }> {
     await tx.delete(teamRoles).where(eq(teamRoles.accountId, accountId));
 
     await tx
-      .update(users)
+      .update(businesses)
       .set({
         onboardingCompleted: false,
         businessProfileCompletedAt: null,
         sector: null,
-        displayName: null,
-        avatarUrl: null,
         lastImproveMetricKey: null,
         lastImproveMetricRateSnapshot: null,
         advancedModulesEnabled: false,
       })
-      .where(eq(users.id, accountId));
+      .where(eq(businesses.id, accountId));
   });
 
   revalidatePath("/dashboard");
@@ -296,15 +290,8 @@ export async function resetAccountData(): Promise<{ error: string | null }> {
   return { error: null };
 }
 
-// Irreversible. Best-effort cleanup of external state (Stripe subscription,
-// Stripe Connect) so nothing keeps billing/connecting after the account is
-// gone, then deletes the Supabase Auth user itself — every table in
-// db/schema.ts cascades from users.id (which cascades from auth.users.id),
-// so this one call is what actually purges subscriptions/stripe_connections
-// and everything resetAccountData deliberately preserves. Unlike the
-// best-effort Stripe steps, a failure on THIS step is returned as an error
-// rather than swallowed — otherwise the user would believe their account
-// and login are gone when they aren't.
+// A personal login cannot disappear while it owns a business. Check this
+// before any external effect, independently of the currently selected business.
 export async function deleteAccount(confirmEmail: string): Promise<{ error: string | null }> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
@@ -313,39 +300,22 @@ export async function deleteAccount(confirmEmail: string): Promise<{ error: stri
   }
   const userId = data.claims.sub as string;
 
-  const access = await requireOwner(userId);
-  if (!access) {
-    return { error: "Seul le propriétaire du compte peut supprimer le compte." };
-  }
-  const { accountId } = access;
-
-  const [user] = await db.select().from(users).where(eq(users.id, accountId)).limit(1);
-  if (!user || confirmEmail.trim().toLowerCase() !== user.email.toLowerCase()) {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const confirmation = z.string().trim().email().safeParse(confirmEmail);
+  if (!user || !confirmation.success || confirmation.data.toLowerCase() !== user.email.toLowerCase()) {
     return { error: "L'email saisi ne correspond pas à celui du compte." };
   }
 
-  const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.userId, accountId)).limit(1);
-  if (subscription?.stripeSubscriptionId) {
-    try {
-      await getPlatformStripeClient().subscriptions.cancel(subscription.stripeSubscriptionId);
-    } catch (error) {
-      console.error("Stripe subscription cancel failed, deleting account anyway", error);
-    }
+  const [ownedBusiness] = await db.select({ id: businesses.id }).from(businesses).where(eq(businesses.ownerUserId, userId)).limit(1);
+  if (ownedBusiness) {
+    const t = await getTranslations("settings.page");
+    return { error: t("deleteOwnedBusinessBlock") };
   }
 
-  const [connection] = await db.select().from(stripeConnections).where(eq(stripeConnections.userId, accountId)).limit(1);
-  if (connection) {
-    try {
-      await getPlatformStripeClient().oauth.deauthorize({
-        client_id: requireEnv("STRIPE_CONNECT_CLIENT_ID"),
-        stripe_user_id: connection.stripeAccountId,
-      });
-    } catch (error) {
-      console.error("Stripe deauthorize failed, deleting account anyway", error);
-    }
-  }
-
-  const { error } = await getSupabaseAdminClient().auth.admin.deleteUser(accountId);
+  // Historical actor references are retained by the schema. Revoke sessions
+  // before identity deletion so the browser cannot continue as the old user.
+  await supabase.auth.signOut({ scope: "global" });
+  const { error } = await getSupabaseAdminClient().auth.admin.deleteUser(userId);
   if (error) {
     console.error("Supabase auth.admin.deleteUser failed", error);
     return { error: "La suppression a échoué. Réessaie, ou contacte le support si ça persiste." };

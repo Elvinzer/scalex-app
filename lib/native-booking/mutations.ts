@@ -1,7 +1,7 @@
 import { and, asc, eq, gt, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import {
+import { businesses,
   nativeBookingAvailability,
   nativeBookingActivities,
   nativeBookingEventClosers,
@@ -424,10 +424,10 @@ async function findBookingByManagementToken(handle: string, slug: string, token:
     .select({ booking: nativeBookings, event: nativeBookingEvents })
     .from(nativeBookings)
     .innerJoin(nativeBookingEvents, eq(nativeBookings.eventId, nativeBookingEvents.id))
-    .innerJoin(users, eq(users.id, nativeBookingEvents.userId))
+    .innerJoin(businesses, eq(businesses.id, nativeBookingEvents.userId))
     .where(
       and(
-        eq(users.bookingHandle, handle),
+        eq(businesses.bookingHandle, handle),
         eq(nativeBookingEvents.slug, slug),
         kind === "cancel" ? eq(nativeBookings.cancellationTokenHash, tokenHash) : eq(nativeBookings.rescheduleTokenHash, tokenHash),
         or(eq(nativeBookings.status, "confirmed"), eq(nativeBookings.status, "sync_failed"))

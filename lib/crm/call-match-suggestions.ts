@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { crmCallLinks, crmCallMatchCandidates, crmCallMatchSuggestions, crmLeadEvents, leads, salesCalls, users } from "@/db/schema";
+import { crmCallLinks, crmCallMatchCandidates, crmCallMatchSuggestions, crmLeadEvents, leads, salesCalls, businesses } from "@/db/schema";
 import { NoAgentKeyAvailableError } from "@/lib/agent/client";
 import { requestFalcoJson, resolveFalcoProvider } from "@/lib/agent/falco-provider";
 import { SharedKeyQuotaExceededError } from "@/lib/agent/quota";
@@ -320,15 +320,15 @@ export async function generateCrmCallMatchSuggestion(accountId: string, callId: 
   }
 
   const [account] = await db
-    .select({ id: users.id, anthropicApiKeyEncrypted: users.anthropicApiKeyEncrypted })
-    .from(users)
-    .where(eq(users.id, accountId))
+    .select({ id: businesses.id, anthropicApiKeyEncrypted: businesses.anthropicApiKeyEncrypted })
+    .from(businesses)
+    .where(eq(businesses.id, accountId))
     .limit(1);
   if (!account) return null;
 
   let provider: Awaited<ReturnType<typeof resolveFalcoProvider>>;
   try {
-    provider = await resolveFalcoProvider(account);
+    provider = await resolveFalcoProvider(account, { operation: "crm-call-match" });
   } catch (error) {
     const failure = failureStatus(error);
     logMatchMetrics(failure.status, null, 0, 0, ranked.length, startedAt);

@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { calendlyConnections, users } from "@/db/schema";
+import { calendlyConnections, businesses } from "@/db/schema";
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { deleteWebhook, validateCalendlyToken } from "@/lib/calendly/client";
 import { decrypt, encrypt } from "@/lib/crypto";
@@ -76,7 +76,7 @@ export async function connectCalendly(formData: FormData): Promise<{ error: stri
     .returning({ id: calendlyConnections.id });
   if (!connection) throw new Error("Calendly connection could not be saved");
 
-  await db.update(users).set({ calendlyConnected: true }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ calendlyConnected: true }).where(eq(businesses.id, access.accountId));
 
   try {
     await inngest.send(calendlyAccountConnected.create({ userId: access.accountId, connectionId: connection.id }));
@@ -119,7 +119,7 @@ export async function disconnectCalendly(): Promise<{ error: string | null }> {
   }
 
   await db.delete(calendlyConnections).where(eq(calendlyConnections.userId, access.accountId));
-  await db.update(users).set({ calendlyConnected: false }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ calendlyConnected: false }).where(eq(businesses.id, access.accountId));
 
   revalidatePath("/integrations");
   revalidatePath("/ventes/appels");

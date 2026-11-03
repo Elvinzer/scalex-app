@@ -2,7 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { cron } from "inngest";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses, users } from "@/db/schema";
+import { getBusinessEntitlement } from "@/lib/businesses/entitlements";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
@@ -38,9 +39,10 @@ export const weeklyBriefEmail = inngest.createFunction(
   async ({ step }) => {
     const recipients = await step.run("load-recipients", async () => {
       return db
-        .select()
-        .from(users)
-        .where(and(eq(users.onboardingCompleted, true), eq(users.weeklyEmailEnabled, true), eq(users.isTestAccount, false)));
+        .select({ id: businesses.id, name: businesses.name, sector: businesses.sector, lastWeeklyBriefSentAt: businesses.lastWeeklyBriefSentAt, email: users.email })
+        .from(businesses)
+        .innerJoin(users, eq(users.id, businesses.ownerUserId))
+        .where(and(eq(businesses.onboardingCompleted, true), eq(businesses.weeklyEmailEnabled, true), eq(businesses.isTestAccount, false)));
     });
 
     const appUrl = getAppUrl();
@@ -52,6 +54,7 @@ export const weeklyBriefEmail = inngest.createFunction(
       recipients.map((user) =>
         step.run(`send-brief-${user.id}`, async () => {
           if (user.lastWeeklyBriefSentAt && new Date(user.lastWeeklyBriefSentAt) > sixDaysAgo) return;
+          if (!(await getBusinessEntitlement(user.id)).active) return;
 
           const businessProfile = await getBusinessProfile(user.id);
           const acquisitionCatalog = await getAcquisitionFunnelCatalog();
@@ -164,11 +167,12 @@ export const weeklyBriefEmail = inngest.createFunction(
             (card) => `${card.label} : ${card.valueLabel}${card.deltaLabel ? ` (${card.deltaLabel})` : ""}`
           );
 
+          if (!(await getBusinessEntitlement(user.id)).active) return;
           const resend = getResendClient();
           await resend.emails.send({
             from: "Minaly <brief@minaly.io>",
             to: user.email,
-            subject: `Ton rapport de la semaine, ${firstName}`,
+            subject: `[${user.name}] Ton rapport de la semaine, ${firstName}`,
             text: [
               ...statsLines,
               ...(scoreLine ? [scoreLine] : []),
@@ -188,9 +192,9 @@ export const weeklyBriefEmail = inngest.createFunction(
               "",
               `Se désabonner de cet email : ${unsubscribeUrl}`,
             ].join("\n"),
-          });
+          }, { idempotencyKey: `weekly-brief:${user.id}:${weekStart}` });
 
-          await db.update(users).set({ lastWeeklyBriefSentAt: new Date() }).where(eq(users.id, user.id));
+          await db.update(businesses).set({ lastWeeklyBriefSentAt: new Date() }).where(eq(businesses.id, user.id));
         })
       )
     );

@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses } from "@/db/schema";
 import { SECTOR_KEYS } from "@/lib/benchmarks";
 import { requireUserId } from "@/lib/current-user";
 import { revalidateBusinessData } from "@/lib/revalidate-data";
+import { requireOwner } from "@/lib/team/context";
 
 const sectorSchema = z.enum(SECTOR_KEYS).nullable();
 
@@ -27,11 +28,13 @@ export async function updateSector(sector: string | null): Promise<{ error: stri
     return { error: "Secteur invalide" };
   }
 
-  await db.update(users).set({ sector: parsed.data }).where(eq(users.id, userId));
+  const access = await requireOwner(userId);
+  if (!access) return { error: "Action réservée au propriétaire du compte." };
+  await db.update(businesses).set({ sector: parsed.data }).where(eq(businesses.id, access.accountId));
 
   revalidatePath("/diagnostic-app");
   revalidatePath("/ventes/pipeline");
   revalidatePath("/ventes/pipeline/funnel");
-  revalidateBusinessData(userId);
+  revalidateBusinessData(access.accountId);
   return { error: null };
 }

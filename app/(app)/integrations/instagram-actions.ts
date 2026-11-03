@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { instagramConnections, users } from "@/db/schema";
+import { instagramConnections, businesses } from "@/db/schema";
 import { tryDecrypt } from "@/lib/crypto";
 import { backfillInstagramPosts, insightsRefreshSinceDate } from "@/lib/instagram/backfill";
 import { fetchProfile, InstagramNotProfessionalAccountError } from "@/lib/instagram/client";
@@ -37,7 +37,7 @@ export async function disconnectInstagram(): Promise<{ error: string | null }> {
   // historical data (deliberately not deleted here) — only the live link is
   // removed, same rule as disconnectIclosed/disconnectCalendly.
   await db.delete(instagramConnections).where(eq(instagramConnections.userId, access.accountId));
-  await db.update(users).set({ instagramConnected: false }).where(eq(users.id, access.accountId));
+  await db.update(businesses).set({ instagramConnected: false }).where(eq(businesses.id, access.accountId));
 
   revalidatePath("/integrations");
   revalidatePath("/acquisition/contenu");

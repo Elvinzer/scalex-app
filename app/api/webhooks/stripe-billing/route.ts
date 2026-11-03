@@ -1,203 +1,130 @@
 import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
-import Stripe from "stripe";
 import { z } from "zod";
 
 import { db } from "@/db";
 import { processedStripeEvents } from "@/db/schema";
+import { billingInvoiceSchema, getInvoiceSubscriptionId } from "@/lib/billing/stripe-invoice";
 import { sendTrialReminderEmail } from "@/lib/billing/trial-reminder";
 import { subscriptionMetadataSchema, syncStripeSubscriptionProjection } from "@/lib/billing/stripe-subscription";
+import { resumeBusinessOperations } from "@/lib/inngest/business-recovery";
 import { billingTrialReminderRequested, inngest } from "@/lib/inngest/client";
+import { isRateLimited } from "@/lib/rate-limit";
 import { recordPaidReferralInvoice, reverseAvailableReferralCommission } from "@/lib/referrals/commissions";
 import { getPlatformStripeClient } from "@/lib/stripe/platform-client";
 import { requireEnv } from "@/lib/utils";
 
-// First Stripe webhook in this codebase (Stripe Connect uses an OAuth
-// redirect, not a webhook — see app/api/stripe/callback/route.ts). Per
-// CLAUDE.md's non-negotiable rule: verify the signature before acting, and
-// stay idempotent by checking event.id against processedStripeEvents first.
-
-// Set on the Subscription itself via checkout.sessions.create's
-// subscription_data.metadata (app/api/billing/checkout/route.ts) so every
-// subscription event — not just checkout.session.completed — carries a
-// stable, non-guessable link back to our own account/plan rows, regardless
-// of delivery order.
-const invoicePayloadSchema = z.object({
-  id: z.string().min(1),
-  subscription: z.union([z.string().min(1), z.object({ id: z.string().min(1) })]).nullable().optional(),
-  currency: z.string().regex(/^[a-zA-Z]{3}$/),
-  amount_paid: z.number().int().nonnegative(),
-  total_excluding_tax: z.number().int().nonnegative().nullable(),
-  period_start: z.number().int().nullable().optional(),
-  period_end: z.number().int().nullable().optional(),
+const referenceSchema = z.union([z.string().min(1), z.object({ id: z.string().min(1) })]);
+const eventSchema = z.object({
+  id: z.string().min(1), type: z.string().min(1),
+  data: z.object({ object: z.unknown() }),
 });
+const subscriptionReferenceSchema = z.object({ id: z.string().min(1) });
 
-function subscriptionIdFromInvoice(value: string | { id: string } | null | undefined): string | null {
-  if (!value) return null;
-  return typeof value === "string" ? value : value.id;
+async function syncCurrentSubscription(subscriptionId: string, failedInvoiceId?: string) {
+  const stripe = getPlatformStripeClient();
+  const retrieve = () => stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price", "latest_invoice"] });
+  const subscription = await retrieve();
+  const result = await syncStripeSubscriptionProjection(subscription, undefined, { failedInvoiceId, refresh: retrieve });
+  if (!result.ok) {
+    const metadata = z.object({ metadata: z.record(z.string(), z.string()) }).safeParse(subscription);
+    const hasBusinessHint = metadata.success && ("businessId" in metadata.data.metadata || "userId" in metadata.data.metadata);
+    if (result.code === "invalid" && !hasBusinessHint) {
+      return null; // An unrelated platform subscription is an intentional ignore.
+    }
+    console.error("[billing] subscription projection rejected", { code: result.code, subscriptionId });
+    throw new Error("subscription_projection_rejected");
+  }
+  return result;
 }
 
-function stripeEpochToDate(value: number | null | undefined): Date | null {
+async function scheduleTrialReminder(value: unknown) {
+  const parsed = z.object({
+    id: z.string().min(1), metadata: z.record(z.string(), z.string()),
+    trial_end: z.number().int().positive().nullable().optional(),
+  }).safeParse(value);
+  if (!parsed.success || !parsed.data.trial_end) return;
+  const metadata = subscriptionMetadataSchema.safeParse(parsed.data.metadata);
+  if (!metadata.success) return;
+  const businessId = metadata.data.businessId ?? metadata.data.userId;
+  if (!businessId) return;
+  const payload = { userId: businessId, subscriptionId: parsed.data.id, trialEnd: parsed.data.trial_end };
+  const reminderAt = (payload.trialEnd - 2 * 24 * 60 * 60) * 1000;
+  if (reminderAt <= Date.now() || (!process.env.INNGEST_EVENT_KEY && !process.env.INNGEST_DEV)) {
+    await sendTrialReminderEmail(payload);
+  } else {
+    await inngest.send({ ...billingTrialReminderRequested.create(payload), id: `trial-reminder:${payload.subscriptionId}:${payload.trialEnd}` });
+  }
+}
+
+function epochDate(value: number | null | undefined) {
   return typeof value === "number" ? new Date(value * 1000) : null;
 }
 
-async function recordInvoiceCommission(stripe: Stripe, object: unknown): Promise<void> {
-  const parsedInvoice = invoicePayloadSchema.safeParse(object);
-  if (!parsedInvoice.success) return;
-
-  const subscriptionId = subscriptionIdFromInvoice(parsedInvoice.data.subscription);
-  if (!subscriptionId) return;
-
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  const parsedMetadata = subscriptionMetadataSchema.safeParse(subscription.metadata);
-  if (!parsedMetadata.success) return;
-
-  await recordPaidReferralInvoice({
-    invoiceId: parsedInvoice.data.id,
-    stripeSubscriptionId: subscription.id,
-    referredAccountId: parsedMetadata.data.userId,
-    currency: parsedInvoice.data.currency,
-    grossAmountCents: parsedInvoice.data.amount_paid,
-    eligibleAmountCents:
-      parsedInvoice.data.total_excluding_tax === null
-        ? 0
-        : Math.min(parsedInvoice.data.total_excluding_tax, parsedInvoice.data.amount_paid),
-    periodStart: stripeEpochToDate(parsedInvoice.data.period_start),
-    periodEnd: stripeEpochToDate(parsedInvoice.data.period_end),
-  });
-}
-
-async function reverseInvoiceCommission(object: unknown): Promise<void> {
-  const parsedInvoice = invoicePayloadSchema.pick({ id: true }).safeParse(object);
-  if (parsedInvoice.success) await reverseAvailableReferralCommission(parsedInvoice.data.id);
-}
-
-async function markProcessed(eventId: string, type: string): Promise<boolean> {
-  const [inserted] = await db
-    .insert(processedStripeEvents)
-    .values({ id: eventId, type })
-    .onConflictDoNothing({ target: processedStripeEvents.id })
-    .returning({ id: processedStripeEvents.id });
-  return Boolean(inserted);
-}
-
-async function hasBeenProcessed(eventId: string): Promise<boolean> {
-  const [processed] = await db
-    .select({ id: processedStripeEvents.id })
-    .from(processedStripeEvents)
-    .where(eq(processedStripeEvents.id, eventId))
-    .limit(1);
-  return Boolean(processed);
-}
-
-async function upsertFromSubscription(subscription: unknown): Promise<void> {
-  const result = await syncStripeSubscriptionProjection(subscription);
-  if (!result.ok && result.code === "invalid") {
-    // Not a subscription created by our own checkout — ignore unrelated
-    // subscriptions without logging their payload or metadata.
-    return;
-  }
-  if (!result.ok) return;
-}
-
-async function scheduleTrialReminder(subscription: unknown): Promise<void> {
-  const parsedSubscription = z
-    .object({
-      id: z.string().min(1),
-      metadata: z.record(z.string(), z.string()),
-      trial_end: z.number().int().positive().nullable().optional(),
-    })
-    .safeParse(subscription);
-  if (!parsedSubscription.success || !parsedSubscription.data.trial_end) return;
-
-  const parsedMetadata = subscriptionMetadataSchema.safeParse(parsedSubscription.data.metadata);
-  if (!parsedMetadata.success) return;
-
-  const payload = {
-    userId: parsedMetadata.data.userId,
-    subscriptionId: parsedSubscription.data.id,
-    trialEnd: parsedSubscription.data.trial_end,
-  };
-  const reminderAt = (payload.trialEnd - 2 * 24 * 60 * 60) * 1000;
-
-  if (reminderAt <= Date.now() || (!process.env.INNGEST_EVENT_KEY && !process.env.INNGEST_DEV)) {
-    await sendTrialReminderEmail(payload);
-    return;
-  }
-
-  await inngest.send(billingTrialReminderRequested.create(payload));
-}
-
 export async function POST(request: NextRequest) {
-  const contentLengthHeader = request.headers.get("content-length");
-  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
-  if (contentLength !== null && Number.isFinite(contentLength) && contentLength > 2_000_000) {
-    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > 2_000_000) {
+    return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
+  }
+  const address = request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim() ?? "unknown";
+  if (isRateLimited(`billing-webhook:${address}`, 600)) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
   const signature = request.headers.get("stripe-signature");
+  if (!signature) return NextResponse.json({ error: "missing_signature" }, { status: 400 });
   const body = await request.text();
-  if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-  }
-
+  if (body.length > 2_000_000) return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
   const stripe = getPlatformStripeClient();
-  let event: Stripe.Event;
+  let event: z.infer<typeof eventSchema>;
   try {
-    event = stripe.webhooks.constructEvent(body, signature, requireEnv("STRIPE_WEBHOOK_SECRET"));
+    event = eventSchema.parse(stripe.webhooks.constructEvent(body, signature, requireEnv("STRIPE_WEBHOOK_SECRET")));
   } catch {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
-
-  if (await hasBeenProcessed(event.id)) {
-    return NextResponse.json({ received: true });
-  }
+  const [processed] = await db.select({ id: processedStripeEvents.id }).from(processedStripeEvents)
+    .where(eq(processedStripeEvents.id, event.id)).limit(1);
+  if (processed) return NextResponse.json({ received: true });
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = z
-          .object({ subscription: z.union([z.string().min(1), z.object({ id: z.string().min(1) })]).nullable().optional() })
-          .safeParse(event.data.object);
-        const subscriptionId =
-          session.success && session.data.subscription
-            ? typeof session.data.subscription === "string"
-              ? session.data.subscription
-              : session.data.subscription.id
-            : null;
-        if (subscriptionId) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
-          await upsertFromSubscription(subscription);
+    let recoveryBusinessId: string | null = null;
+    if (event.type === "checkout.session.completed") {
+      const session = z.object({ subscription: referenceSchema.nullable().optional() }).parse(event.data.object);
+      const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+      if (subscriptionId) {
+        const result = await syncCurrentSubscription(subscriptionId);
+        if (result?.applied && ["active", "trialing"].includes(result.projection.status)) recoveryBusinessId = result.projection.userId;
+      }
+    } else if (["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"].includes(event.type)) {
+      const reference = subscriptionReferenceSchema.parse(event.data.object);
+      const result = await syncCurrentSubscription(reference.id);
+      if (result?.applied && ["active", "trialing"].includes(result.projection.status)) recoveryBusinessId = result.projection.userId;
+    } else if (event.type === "customer.subscription.trial_will_end") {
+      await scheduleTrialReminder(event.data.object);
+    } else if (["invoice.payment_failed", "invoice.payment_action_required", "invoice.paid", "invoice.voided"].includes(event.type)) {
+      const invoice = billingInvoiceSchema.parse(event.data.object);
+      const subscriptionId = getInvoiceSubscriptionId(invoice);
+      if (subscriptionId) {
+        const failed = event.type === "invoice.payment_failed" || event.type === "invoice.payment_action_required";
+        const result = await syncCurrentSubscription(subscriptionId, failed ? invoice.id : undefined);
+        if (result?.applied && ["active", "trialing"].includes(result.projection.status)) recoveryBusinessId = result.projection.userId;
+        if (event.type === "invoice.paid" && result && invoice.currency && invoice.amount_paid !== undefined) {
+          await recordPaidReferralInvoice({
+            invoiceId: invoice.id, stripeSubscriptionId: subscriptionId, referredAccountId: result.projection.userId,
+            currency: invoice.currency, grossAmountCents: invoice.amount_paid,
+            eligibleAmountCents: invoice.total_excluding_tax == null ? 0 : Math.min(invoice.total_excluding_tax, invoice.amount_paid),
+            periodStart: epochDate(invoice.period_start), periodEnd: epochDate(invoice.period_end),
+          });
         }
-        break;
       }
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
-        await upsertFromSubscription(event.data.object);
-        break;
-      }
-      case "customer.subscription.trial_will_end": {
-        await scheduleTrialReminder(event.data.object);
-        break;
-      }
-      case "invoice.paid": {
-        await recordInvoiceCommission(stripe, event.data.object);
-        break;
-      }
-      case "invoice.voided": {
-        await reverseInvoiceCommission(event.data.object);
-        break;
-      }
-      default:
-        break;
+      if (event.type === "invoice.voided") await reverseAvailableReferralCommission(invoice.id);
     }
-
-    await markProcessed(event.id, event.type);
+    // Recovery enqueueing must succeed before acknowledging the payment event.
+    if (recoveryBusinessId) await resumeBusinessOperations(recoveryBusinessId);
+    await db.insert(processedStripeEvents).values({ id: event.id, type: event.type })
+      .onConflictDoNothing({ target: processedStripeEvents.id });
+    return NextResponse.json({ received: true });
   } catch {
-    // Do not write the idempotency ledger on failure. Stripe will retry the
-    // event and the business operations are themselves upsert/idempotent.
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+    console.error("[billing] event processing failed", { eventId: event.id, type: event.type });
+    return NextResponse.json({ error: "webhook_processing_failed" }, { status: 500 });
   }
-
-  return NextResponse.json({ received: true });
 }

@@ -14,8 +14,10 @@
     "extension:package": "npm run extension:build && node scripts/package-extension.mjs",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:migrate": "drizzle-kit migrate && node scripts/sync-platform-admins.mjs",
+    "db:studio": "drizzle-kit studio",
+    "test:multi-business": "node scripts/test-multi-business.mjs",
+    "test:business-migration": "node scripts/verify-business-migration.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

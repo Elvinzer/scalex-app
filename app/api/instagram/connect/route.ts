@@ -1,6 +1,6 @@
-import { randomBytes } from "node:crypto";
-
 import { NextResponse, type NextRequest } from "next/server";
+
+import { createBusinessOAuthState } from "@/lib/integrations/oauth-state";
 
 import { hasActiveSubscription } from "@/lib/billing/plan-gate";
 import { INSTAGRAM_AUTHORIZE_URL, INSTAGRAM_OAUTH_SCOPES } from "@/lib/instagram/protocol";
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/integrations", origin));
   }
 
-  const state = randomBytes(16).toString("hex");
+  const state = createBusinessOAuthState({ provider: "instagram", userId: data.claims.sub as string, businessId: access.accountId });
   const authorizeUrl = new URL(INSTAGRAM_AUTHORIZE_URL);
   authorizeUrl.searchParams.set("client_id", requireEnv("INSTAGRAM_APP_ID"));
   let redirectUri: string;
@@ -53,10 +53,10 @@ export async function GET(request: NextRequest) {
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("scope", INSTAGRAM_OAUTH_SCOPES.join(","));
-  authorizeUrl.searchParams.set("state", state);
+  authorizeUrl.searchParams.set("state", state.nonce);
 
   const response = NextResponse.redirect(authorizeUrl);
-  response.cookies.set("instagram_oauth_state", state, {
+  response.cookies.set("instagram_oauth_state", state.cookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

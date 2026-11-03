@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { contentRecommendations, funnelStageInsights, insightRecords, users } from "@/db/schema";
+import { contentRecommendations, funnelStageInsights, insightRecords, businesses } from "@/db/schema";
 import { getBusinessProfile } from "@/lib/business/queries";
 import { getAcquisitionFunnelCatalog } from "@/lib/acquisition-funnels/queries";
 import { activeContentMetricKeys, activeLegacyMetricKeys, normalizeAcquisitionSelection } from "@/lib/acquisition-funnels/selection";
@@ -67,7 +67,7 @@ function periodForCurrentDiagnostic(): { start: string; end: string } {
 
 async function diagnosticMetricInsight(accountId: string, sourceId: string): Promise<MaterializedInsight | null> {
   const [[user], businessProfile, rawData, acquisitionCatalog] = await Promise.all([
-    db.select({ sector: users.sector }).from(users).where(eq(users.id, accountId)).limit(1),
+    db.select({ sector: businesses.sector }).from(businesses).where(eq(businesses.id, accountId)).limit(1),
     getBusinessProfile(accountId),
     getDiagnosticKpiRawData(accountId),
     getAcquisitionFunnelCatalog(),

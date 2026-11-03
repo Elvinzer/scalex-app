@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { businesses } from "@/db/schema";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 import { verifyUnsubscribeToken } from "@/lib/unsubscribe-token";
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Lien invalide." }, { status: 400 });
   }
 
-  await db.update(users).set({ weeklyEmailEnabled: false }).where(eq(users.id, userId));
+  await db.update(businesses).set({ weeklyEmailEnabled: false }).where(eq(businesses.id, userId));
 
   return new NextResponse("Tu ne recevras plus l'email hebdomadaire de Minaly.", {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
