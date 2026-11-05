@@ -1,0 +1,42 @@
+{
+  "verifiedAt": "2026-11-05T08:12:53.940Z",
+  "reviewedHead": "cab903798b1ea5b84420580cd0de93c616b9e41c",
+  "deploymentId": "dpl_CNsYvuBrFXEaK151hi7FnKkXUWr3",
+  "url": "https://scalex-9k5l106b7-cedrics-projects-87cca661.vercel.app",
+  "readyState": "READY",
+  "environment": "preview",
+  "productionPromoted": false,
+  "sourceParity": {
+    "trackedFiles": 1711,
+    "mismatches": 0
+  },
+  "build": {
+    "nextVersion": "16.3.8",
+    "generatedPages": 116,
+    "migrationReplay": "passed"
+  },
+  "httpChecks": [
+    {
+      "path": "/sign-in",
+      "status": 200,
+      "title": "Sign in to Minaly",
+      "emailInputPresent": true
+    },
+    {
+      "path": "/businesses",
+      "status": 307,
+      "location": "/sign-in"
+    },
+    {
+      "path": "/api/crm/extension/session",
+      "method": "POST",
+      "authenticated": false,
+      "status": 401,
+      "error": "unauthorized"
+    }
+  ],
+  "protection": [
+    "vercel_authentication"
+  ],
+  "authenticatedProductVerification": "Completed locally with disposable PostgreSQL and independently reviewed; no live provider mutation, charge or email."
+}

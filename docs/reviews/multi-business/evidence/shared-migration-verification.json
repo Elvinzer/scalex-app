@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-03T11:22:47.678Z",
+  "readOnlyVerification": true,
+  "originalTables": 129,
+  "publicTables": 132,
+  "migrationsBefore": 72,
+  "migrationsAfter": 74,
+  "newMigrationHashesMatch": true,
+  "tablesWithReducedRowCount": [],
+  "tablesWithChangedOriginalRowDigest": [],
+  "orphanSubscriptions": 0
+}
