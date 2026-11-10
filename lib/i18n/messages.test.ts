@@ -222,9 +222,10 @@ describe("message catalogues", () => {
     }
   });
 
-  it("provides funnel block translations to the onboarding client tree", () => {
+  it("provides funnel block and import translations to the onboarding client tree", () => {
     const onboardingLayout = fs.readFileSync(path.resolve(process.cwd(), "app/onboarding/layout.tsx"), "utf8");
     expect(onboardingLayout).toMatch(/loadMessagesFor\(locale,\s*\[[^\]]*"funnelBlocks"/);
+    expect(onboardingLayout).toMatch(/loadMessagesFor\(locale,\s*\[[^\]]*"data"/);
   });
 
   it("falls back to French for a key missing from a translation", async () => {

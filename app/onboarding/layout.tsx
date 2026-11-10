@@ -34,7 +34,7 @@ export default async function OnboardingLayout({ children }: { children: React.R
   const user = await getUserById(userId);
 
   const locale = await getRequestLocale();
-  const messages = await loadMessagesFor(locale, ["common", "onboarding", "diagnostic", "funnelBlocks"]);
+  const messages = await loadMessagesFor(locale, ["common", "onboarding", "diagnostic", "funnelBlocks", "data"]);
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <AppThemeProvider initialPreference={user?.themePreference ?? "light"}>
