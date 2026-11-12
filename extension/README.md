@@ -46,6 +46,8 @@ et refuse les appels CRM si le jeton lié au business sélectionné ne peut pas
 session web comme solution de repli.
 La version `0.3.13` ignore le composeur de messagerie flottant de LinkedIn
 quand un profil personnel est ouvert, afin de garder le bouton près du nom.
+La version `0.3.14` prend aussi en charge le titre de profil LinkedIn quand
+la page ne l'expose pas dans un élément `h1`.
 
 ## Construire le package local
 

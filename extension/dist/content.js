@@ -195,7 +195,7 @@ function minalyVisibleNameHeading(preferredElement) {
     if (minalyIsConversationSurface(platform))
         return null;
     const identitySelector = platform === "linkedin"
-        ? 'main [data-view-name="profile-top-card"] h1, main .top-card-layout__title, main h1, [role="main"] h1'
+        ? 'main [data-view-name="profile-top-card"] h1, main .top-card-layout__title, main h1, [role="main"] h1, .pv-text-details__left-panel .text-heading-xlarge, .text-heading-xlarge, h1'
         : "main header h1, main header h2, [role=main] header h1, [role=main] header h2";
     return Array.from(document.querySelectorAll(identitySelector)).find(minalyIsReliableProfileNameElement) ?? null;
 }
