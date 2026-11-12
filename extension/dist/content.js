@@ -194,6 +194,26 @@ function minalyVisibleNameHeading(preferredElement) {
     const platform = hostname === "linkedin.com" ? "linkedin" : "instagram";
     if (minalyIsConversationSurface(platform))
         return null;
+    if (platform === "linkedin") {
+        const currentProfile = minalyProfilePath("linkedin", window.location.pathname);
+        if (currentProfile) {
+            const profileLinkSelector = `a[href*="${currentProfile.path}"]`;
+            const nameLinks = Array.from(document.querySelectorAll(profileLinkSelector))
+                .filter((anchor) => {
+                if (!minalyIsVisibleElement(anchor))
+                    return false;
+                const name = anchor.querySelector(".text-heading-xlarge, h1, h2");
+                const label = anchor.textContent?.trim().replace(/\s+/g, " ") ?? "";
+                return Boolean(name || /voir les vérifications de|see .* verification/i.test(label));
+            })
+                .sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top);
+            const firstNameLink = nameLinks[0];
+            if (firstNameLink) {
+                const name = firstNameLink.querySelector(".text-heading-xlarge, h1, h2");
+                return name && minalyIsReliableProfileNameElement(name) ? name : firstNameLink;
+            }
+        }
+    }
     const identitySelector = platform === "linkedin"
         ? 'main [data-view-name="profile-top-card"] h1, main .top-card-layout__title, main h1, [role="main"] h1, .pv-text-details__left-panel .text-heading-xlarge, .text-heading-xlarge, h1'
         : "main header h1, main header h2, [role=main] header h1, [role=main] header h2";
@@ -201,10 +221,11 @@ function minalyVisibleNameHeading(preferredElement) {
 }
 function minalyVisibleName(handle, preferredElement) {
     const normalizedHandle = handle.trim().replace(/^@+/, "").toLowerCase();
-    const text = minalyVisibleNameHeading(preferredElement)?.textContent?.trim().replace(/\s+/g, " ");
+    const rawText = minalyVisibleNameHeading(preferredElement)?.textContent?.trim().replace(/\s+/g, " ");
+    const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
+    const text = hostname === "linkedin.com" ? rawText?.replace(/\s+(?:Voir les vérifications de|See .* verification).*$/i, "") : rawText;
     if (!text)
         return normalizedHandle;
-    const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
     return hostname === "instagram.com" && minalyNormalizeProfileLabel(text) === minalyNormalizeProfileLabel(normalizedHandle)
         ? normalizedHandle
         : text;

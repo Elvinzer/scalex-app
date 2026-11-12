@@ -9,6 +9,7 @@ type FixtureNode = {
   isConnected: boolean;
   rect: FixtureRect;
   getBoundingClientRect(): FixtureRect;
+  querySelector?(selector: string): FixtureNode | null;
 };
 
 const contentSource = readFileSync(new URL("./dist/content.js", import.meta.url), "utf8");
@@ -29,6 +30,7 @@ function extractVisibleName(input: {
   pathname: string;
   identityHeadings?: FixtureNode[];
   globalHeadings?: FixtureNode[];
+  profileLinks?: FixtureNode[];
   preferredElement?: FixtureNode;
 }): { name: unknown; queriedSelectors: string[] } {
   const mountCode = contentSource.lastIndexOf("\nminalyMount();");
@@ -37,6 +39,7 @@ function extractVisibleName(input: {
   const queriedSelectors: string[] = [];
   const identityHeadings = input.identityHeadings ?? [];
   const globalHeadings = input.globalHeadings ?? [];
+  const profileLinks = input.profileLinks ?? [];
   const host = input.platform === "linkedin" ? "www.linkedin.com" : "www.instagram.com";
   const body = fixtureNode("");
   const window = {
@@ -48,6 +51,7 @@ function extractVisibleName(input: {
     body,
     querySelectorAll(selector: string) {
       queriedSelectors.push(selector);
+      if (selector.startsWith('a[href*="/in/')) return profileLinks;
       if (selector === "h1, h2") return globalHeadings;
       if (selector.startsWith("textarea")) return [];
       if (selector.includes("main") || selector.includes("[role=main]")) return identityHeadings;
@@ -149,7 +153,7 @@ describe("CRM extension profile name extraction", () => {
     });
 
     expect(result.name).toBe("Microsoft");
-    expect(result.queriedSelectors).toContain('main [data-view-name="profile-top-card"] h1, main .top-card-layout__title, main h1, [role="main"] h1');
+    expect(result.queriedSelectors).toContain('main [data-view-name="profile-top-card"] h1, main .top-card-layout__title, main h1, [role="main"] h1, .pv-text-details__left-panel .text-heading-xlarge, .text-heading-xlarge, h1');
     expect(result.queriedSelectors).not.toContain("h1, h2");
   });
 
@@ -162,6 +166,22 @@ describe("CRM extension profile name extraction", () => {
     });
 
     expect(result.name).toBe("Jane Doe");
+  });
+
+  it("uses LinkedIn's current profile link when the name is not exposed as a heading", () => {
+    const profileLink = {
+      ...fixtureNode("Romain Bouvet, Ph.D Voir les vérifications de Romain"),
+      querySelector: () => null,
+    };
+    const result = extractVisibleName({
+      platform: "linkedin",
+      handle: "romain-bouvet",
+      pathname: "/in/romain-bouvet/",
+      profileLinks: [profileLink],
+    });
+
+    expect(result.name).toBe("Romain Bouvet, Ph.D");
+    expect(result.queriedSelectors).toContain('a[href*="/in/romain-bouvet"]');
   });
 
   it("skips an Instagram profile action next to the visible profile identity", () => {
