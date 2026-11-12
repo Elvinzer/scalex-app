@@ -24,7 +24,7 @@ const messageAbTestServiceSource = readFileSync(new URL("../lib/crm/message-ab-t
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.version).toBe("0.3.11");
+    expect(manifest.version).toBe("0.3.12");
     expect(manifest.permissions).toEqual(["storage", "tabs"]);
     expect(manifest.background.service_worker).toBe("dist/background.js");
     expect(manifest.host_permissions).toEqual(expect.arrayContaining(["https://www.minaly.io/*"]));
@@ -45,6 +45,8 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(backgroundSource).toContain("https://www.minaly.io");
     expect(backgroundSource).toContain("minalyCrmExtensionToken");
     expect(backgroundSource).toContain("minalyCrmExtensionAuthState");
+    expect(backgroundSource).toContain('credentials: "omit"');
+    expect(backgroundSource).toContain("minalyBackgroundHasBoundSession");
     expect(backgroundSource).toContain("/api/crm/extension/search");
     expect(backgroundSource).toContain("/api/crm/extension/message-tests/record-copy");
     expect(backgroundSource).toContain("/api/crm/extension/message-tests/confirm-send");
@@ -58,6 +60,9 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(contentSource).toContain("minaly-profile-link");
     expect(contentSource).toContain("minalyResolutionCacheTtlMs");
     expect(contentSource).toContain("minalyNavigationObserver");
+    expect(contentSource).toContain('if (section !== "in" || !handle) return null;');
+    expect(contentSource).toContain('const result = minalyProfilePath("linkedin", window.location.pathname);');
+    expect(contentSource).not.toContain('minalyVisibleConversationProfile("linkedin")');
     expect(contentSource).toContain("minalyAwaitingProfile");
     expect(contentSource).toContain("minaly-authenticated");
     expect(contentSource).toContain("MISE À JOUR DISPONIBLE");

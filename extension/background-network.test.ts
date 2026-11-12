@@ -25,7 +25,7 @@ function createBackgroundFixture(fetcher: (input: string, init?: RequestInit) =>
   const chrome = {
     runtime: {
       id: "minaly-test-extension",
-      getManifest: () => ({ version: "0.3.9" }),
+      getManifest: () => ({ version: "0.3.12" }),
       onUpdateAvailable: { addListener: () => undefined },
       onMessage: { addListener: (listener: BackgroundMessageListener) => listeners.push(listener) },
     },
@@ -61,7 +61,7 @@ describe("CRM extension network recovery", () => {
       requestedUrls.push(input);
       if (input === "http://localhost:3000/api/crm/extension/resolve") throw new Error("Local development server is unavailable.");
       if (input === "https://www.minaly.io/api/crm/extension/session") {
-        return new Response(JSON.stringify({ data: { extensionToken: "fresh-production-token", businessId: businessA, businessName: "Business A" } }), { status: 200 });
+        return new Response(JSON.stringify({ data: { extensionToken: advisoryToken(businessA), businessId: businessA, businessName: "Business A" } }), { status: 200 });
       }
       if (input === "https://www.minaly.io/api/crm/extension/resolve") {
         return new Response(JSON.stringify({ ok: true }), { status: 200 });
@@ -78,7 +78,20 @@ describe("CRM extension network recovery", () => {
       "https://www.minaly.io/api/crm/extension/resolve",
     ]);
     expect(fixture.storage.get("minalyCrmExtensionOrigin")).toBe("https://www.minaly.io");
-    expect(fixture.storage.get("minalyCrmExtensionToken")).toBe("fresh-production-token");
+    expect(fixture.storage.get("minalyCrmExtensionToken")).toBe(advisoryToken(businessA));
+  });
+
+  it("never retries a failed renewal with ambient browser cookies", async () => {
+    const attempts: Array<{ url: string; credentials: RequestCredentials | undefined; authorization?: string }> = [];
+    const fixture = createBackgroundFixture(async (input, init) => {
+      attempts.push({ url: input, credentials: init?.credentials, authorization: new Headers(init?.headers).get("Authorization") ?? undefined });
+      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+    });
+    const result = await sendApiRequest(fixture.listeners) as { status: number; body: unknown };
+    expect(result).toMatchObject({ status: 401, body: { error: "session_expired" }, businessId: businessA });
+    const resolveRequests = attempts.filter((attempt) => attempt.url.endsWith("/resolve"));
+    expect(resolveRequests.every((attempt) => attempt.credentials === "omit" && Boolean(attempt.authorization))).toBe(true);
+    expect(attempts.filter((attempt) => attempt.url.endsWith("/session")).every((attempt) => attempt.credentials === "include")).toBe(true);
   });
 
   it("renews the token business even when a different business is selected in the web app", async () => {

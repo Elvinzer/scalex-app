@@ -24,7 +24,7 @@ function minalyProfilePath(platform, rawPath) {
     }
     const section = parts[0]?.toLowerCase();
     const handle = parts[1]?.toLowerCase();
-    if (!section || !handle || !["in", "company"].includes(section))
+    if (section !== "in" || !handle)
         return null;
     return { path: `/${section}/${handle}`, handle };
 }
@@ -133,12 +133,7 @@ function minalyProfileUrl() {
         return result ? { platform: "instagram", url: `https://instagram.com${result.path}`, handle: result.handle } : null;
     }
     if (hostname === "linkedin.com") {
-        const conversation = minalyVisibleConversationProfile("linkedin");
-        if (conversation)
-            return { platform: "linkedin", url: `https://linkedin.com${conversation.path}`, handle: conversation.handle, nameElement: conversation.element };
-        if (minalyIsConversationSurface("linkedin"))
-            return null;
-        const result = minalyProfilePath("linkedin", window.location.pathname) ?? minalyVisibleProfileHref(hostname, "linkedin");
+        const result = minalyProfilePath("linkedin", window.location.pathname);
         return result ? { platform: "linkedin", url: `https://linkedin.com${result.path}`, handle: result.handle } : null;
     }
     return null;

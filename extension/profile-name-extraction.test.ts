@@ -83,6 +83,14 @@ function correctProfileName(input: { handle: string; displayName: string }): Rec
   return runInContext("minalyProfileWithDisplayName(testProfile, correctedName)", context) as Record<string, unknown>;
 }
 
+function extractLinkedInPath(pathname: string): unknown {
+  const mountCode = contentSource.lastIndexOf("\nminalyMount();");
+  if (mountCode < 0) throw new Error("The extension content script has no mount entry point.");
+  const context = createContext({});
+  runInContext(contentSource.slice(0, mountCode), context);
+  return runInContext(`minalyProfilePath("linkedin", ${JSON.stringify(pathname)})`, context);
+}
+
 function extractMessageTime(input: {
   platform: "instagram" | "linkedin";
   pathname: string;
@@ -112,6 +120,13 @@ function extractMessageTime(input: {
 }
 
 describe("CRM extension profile name extraction", () => {
+  it("accepts only personal LinkedIn profile routes", () => {
+    expect(extractLinkedInPath("/in/jane-doe/")).toEqual({ path: "/in/jane-doe", handle: "jane-doe" });
+    expect(extractLinkedInPath("/company/acme/")).toBeNull();
+    expect(extractLinkedInPath("/search/results/people/")).toBeNull();
+    expect(extractLinkedInPath("/messaging/thread/123/")).toBeNull();
+  });
+
   it("uses the Instagram profile identity heading when it shows a display name", () => {
     const result = extractVisibleName({
       platform: "instagram",

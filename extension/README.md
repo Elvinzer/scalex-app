@@ -40,6 +40,10 @@ arrive tardivement et permet de changer l’étape d’un lead avec une variante
 La version `0.3.11` demande de choisir le business lors de la connexion et
 conserve ce choix pendant le renouvellement de session. Le nom affiché en haut
 du panneau permet de reconnecter l’extension à un autre business.
+La version `0.3.12` limite la capture LinkedIn aux profils personnels `/in/`
+et refuse les appels CRM si le jeton lié au business sélectionné ne peut pas
+être renouvelé. Les appels de l’extension n’utilisent pas les cookies de la
+session web comme solution de repli.
 
 ## Construire le package local
 

@@ -238,10 +238,6 @@ async function attachCrmLeadProfile(tx: CrmTransaction, accountId: string, leadI
     if (urlConflict || handleConflict) throw new Error("CRM_PROFILE_CONFLICT");
     await tx.update(crmLeadProfiles).set({
       canonicalProfileUrl: sameNetwork.canonicalProfileUrl ?? profile.canonicalProfileUrl,
-      displayName: profile.displayName || sameNetwork.displayName,
-      firstName: profile.firstName || sameNetwork.firstName,
-      lastName: profile.lastName || sameNetwork.lastName,
-      searchNameNormalized: profileSearchName(profile) || sameNetwork.searchNameNormalized,
       capturedAt: new Date(profile.capturedAt),
       updatedAt: new Date(),
     }).where(and(eq(crmLeadProfiles.id, sameNetwork.id), eq(crmLeadProfiles.accountId, accountId)));

@@ -137,6 +137,12 @@ function minalyBusinessIdFromToken(token: string): string | null {
   } catch { return null; }
 }
 
+function minalyBackgroundHasBoundSession(token: string | null, businessId: string | null): boolean {
+  if (!token) return false;
+  const tokenBusinessId = minalyBusinessIdFromToken(token);
+  return Boolean(tokenBusinessId && (!businessId || tokenBusinessId === businessId));
+}
+
 async function minalyBackgroundRequest(message: MinalyBackgroundRequest): Promise<{ status: number; body: unknown; businessId?: string; businessName?: string }> {
   let origin = await minalyBackgroundOrigin();
   const values = await chrome.storage.local.get([minalyBackgroundTokenKey, minalyBackgroundBusinessKey, minalyBackgroundBusinessNameKey]);
@@ -144,33 +150,43 @@ async function minalyBackgroundRequest(message: MinalyBackgroundRequest): Promis
   const pinnedBusinessId = minalyBackgroundBusinessId(values[minalyBackgroundBusinessKey]) ?? (token ? minalyBusinessIdFromToken(token) : null);
   if (pinnedBusinessId) await chrome.storage.local.set({ [minalyBackgroundBusinessKey]: pinnedBusinessId });
   if (pinnedBusinessId && !values[minalyBackgroundBusinessNameKey]) token = await minalyBackgroundSession();
-  const request = async (requestOrigin: string, bearer: string | null) => fetch(`${requestOrigin}${message.path}`, {
+  const validToken = () => token && minalyBackgroundHasBoundSession(token, pinnedBusinessId) ? token : null;
+  const expired = () => ({ status: 401, body: { error: "session_expired" }, ...(pinnedBusinessId ? { businessId: pinnedBusinessId } : {}) });
+  let bearer = validToken();
+  if (!bearer) return expired();
+  const request = async (requestOrigin: string, sessionToken: string) => fetch(`${requestOrigin}${message.path}`, {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+    credentials: "omit",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
     body: JSON.stringify(message.payload ?? {}),
   });
   origin = await minalyBackgroundOrigin();
   let response: Response;
   try {
-    response = await request(origin, token);
+    response = await request(origin, bearer);
   } catch {
     await chrome.storage.local.remove([minalyBackgroundTokenKey, minalyBackgroundOriginKey]);
     token = await minalyBackgroundSession();
+    bearer = validToken();
+    if (!bearer) return expired();
     origin = await minalyBackgroundOrigin();
-    response = await request(origin, token);
+    response = await request(origin, bearer);
   }
   if (response.status === 401) {
     await chrome.storage.local.remove([minalyBackgroundTokenKey]);
     token = await minalyBackgroundSession();
+    bearer = validToken();
+    if (!bearer) return expired();
     origin = await minalyBackgroundOrigin();
-    response = await request(origin, token);
+    response = await request(origin, bearer);
   }
   let body: unknown = null;
   try { body = await response.json(); } catch { body = null; }
-  const business = await chrome.storage.local.get([minalyBackgroundBusinessKey, minalyBackgroundBusinessNameKey]);
-  const businessId = minalyBackgroundBusinessId(business[minalyBackgroundBusinessKey]);
-  const businessName = typeof business[minalyBackgroundBusinessNameKey] === "string" ? business[minalyBackgroundBusinessNameKey] : null;
+  const business = await chrome.storage.local.get([minalyBackgroundBusinessNameKey]);
+  const businessId = pinnedBusinessId ?? (token ? minalyBusinessIdFromToken(token) : null);
+  const businessName = businessId === pinnedBusinessId && typeof values[minalyBackgroundBusinessNameKey] === "string"
+    ? values[minalyBackgroundBusinessNameKey]
+    : typeof business[minalyBackgroundBusinessNameKey] === "string" ? business[minalyBackgroundBusinessNameKey] : null;
   return { status: response.status, body, ...(businessId ? { businessId } : {}), ...(businessName ? { businessName } : {}) };
 }
 
