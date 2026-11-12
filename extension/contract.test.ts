@@ -7,6 +7,7 @@ const manifest = JSON.parse(readFileSync(new URL("./manifest.json", import.meta.
   version: string;
   permissions: string[];
   host_permissions: string[];
+  web_accessible_resources: Array<{ resources: string[]; matches: string[] }>;
   background: { service_worker: string };
   content_scripts: Array<{ js: string[]; matches: string[] }>;
 };
@@ -24,10 +25,11 @@ const messageAbTestServiceSource = readFileSync(new URL("../lib/crm/message-ab-t
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.version).toBe("0.3.16");
+    expect(manifest.version).toBe("0.3.17");
     expect(manifest.permissions).toEqual(["storage", "tabs"]);
     expect(manifest.background.service_worker).toBe("dist/background.js");
     expect(manifest.host_permissions).toEqual(expect.arrayContaining(["https://www.minaly.io/*"]));
+    expect(manifest.web_accessible_resources).toEqual([{ resources: ["auth-callback.html"], matches: ["https://www.minaly.io/*", "http://localhost:3000/*"] }]);
     expect(manifest.content_scripts[0]?.matches).toEqual(expect.arrayContaining([
       "https://www.instagram.com/*",
       "https://www.linkedin.com/*",

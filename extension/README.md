@@ -52,6 +52,8 @@ La version `0.3.15` ancre le bouton sur le lien du nom dans la carte de profil
 LinkedIn et retire le texte d'accessibilité du nom capturé.
 La version `0.3.16` reconnaît aussi le lien du profil quand LinkedIn lui donne
 une URL absolue.
+La version `0.3.17` autorise la page de retour d’authentification depuis
+minaly.io et localhost pour que Chrome puisse terminer la connexion.
 
 ## Construire le package local
 

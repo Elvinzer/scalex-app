@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Minaly CRM",
-  "version": "0.3.16",
+  "version": "0.3.17",
   "description": "Capture les profils sociaux visibles dans le CRM Minaly.",
   "permissions": [
     "storage",
@@ -31,6 +31,15 @@
   "action": {
     "default_title": "Minaly CRM"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["auth-callback.html"],
+      "matches": [
+        "https://www.minaly.io/*",
+        "http://localhost:3000/*"
+      ]
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }
