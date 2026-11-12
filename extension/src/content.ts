@@ -157,7 +157,8 @@ function minalyHasVisibleMessageComposer(): boolean {
 }
 
 function minalyIsConversationSurface(platform: MinalyExtensionPlatform): boolean {
-  return minalyIsMessagingRoute(platform) || minalyHasVisibleMessageComposer();
+  return minalyIsMessagingRoute(platform)
+    || (platform === "instagram" && minalyHasVisibleMessageComposer());
 }
 
 function minalyVisibleConversationProfile(platform: MinalyExtensionPlatform): { path: string; handle: string; element: HTMLElement } | null {

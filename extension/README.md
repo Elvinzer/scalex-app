@@ -44,6 +44,8 @@ La version `0.3.12` limite la capture LinkedIn aux profils personnels `/in/`
 et refuse les appels CRM si le jeton lié au business sélectionné ne peut pas
 être renouvelé. Les appels de l’extension n’utilisent pas les cookies de la
 session web comme solution de repli.
+La version `0.3.13` ignore le composeur de messagerie flottant de LinkedIn
+quand un profil personnel est ouvert, afin de garder le bouton près du nom.
 
 ## Construire le package local
 

@@ -70,7 +70,8 @@ function minalyHasVisibleMessageComposer() {
     });
 }
 function minalyIsConversationSurface(platform) {
-    return minalyIsMessagingRoute(platform) || minalyHasVisibleMessageComposer();
+    return minalyIsMessagingRoute(platform)
+        || (platform === "instagram" && minalyHasVisibleMessageComposer());
 }
 function minalyVisibleConversationProfile(platform) {
     const hostname = window.location.hostname.toLowerCase().replace(/^www\./, "");
