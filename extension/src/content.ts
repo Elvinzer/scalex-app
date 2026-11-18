@@ -1233,7 +1233,7 @@ function minalyMount(): void {
 }
 :host(.minaly-floating) { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 2147483647; margin-inline-start: 0; }
 * { box-sizing: border-box; }
-.minaly-panel { position: fixed; z-index: 2147483647; }
+.minaly-panel { position: fixed; z-index: 2147483647; inset: auto; margin: 0; }
 .minaly-panel[hidden] { display: none; }
 .minaly-button, .minaly-panel, .minaly-panel button, .minaly-panel input, .minaly-panel select, .minaly-panel textarea { font-family: inherit; }
 .minaly-button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--minaly-accent); color: var(--minaly-accent-text); font-size: 13px; font-weight: 750; letter-spacing: -0.01em; box-shadow: 0 8px 20px var(--minaly-shadow); cursor: pointer; touch-action: manipulation; transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
@@ -1327,6 +1327,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
   button.setAttribute("aria-expanded", "false");
   const panel = minalyElement("div");
   panel.className = "minaly-panel";
+  panel.setAttribute("popover", "manual");
   panel.hidden = true;
   shadow.append(button, panel);
   document.documentElement.append(host);
@@ -1346,8 +1347,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
   const close = () => {
     operationId += 1;
     state = "closed";
-    panel.hidden = true;
-    button.setAttribute("aria-expanded", "false");
+    draw();
     if (document.activeElement === host || host.contains(document.activeElement)) button.focus({ preventScroll: true });
   };
   const openAuth = () => { void chrome.runtime.sendMessage({ type: "minaly-open-auth" }); };
@@ -1395,7 +1395,13 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     draw();
   };
   const draw = () => {
-    panel.hidden = state === "closed";
+    if (state === "closed") {
+      if (panel.matches(":popover-open")) panel.hidePopover();
+      panel.hidden = true;
+    } else {
+      panel.hidden = false;
+      if (!panel.matches(":popover-open")) panel.showPopover();
+    }
     button.setAttribute("aria-expanded", String(state !== "closed"));
     minalyBuildPanel(shadow, state, resolution, profile, message, messageTestStatus, successLeadUrl, resolutionCrmUrl, extensionUpdate, manualSearchCandidates, close, openAuth, () => void resolveAndDraw(true), (selection) => void capture(selection), (input) => void update(input), (query) => void search(query), applyUpdate, (assignmentId, text) => void copyMessage(assignmentId, text));
   };

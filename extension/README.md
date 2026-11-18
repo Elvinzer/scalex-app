@@ -54,6 +54,8 @@ La version `0.3.16` reconnaît aussi le lien du profil quand LinkedIn lui donne
 une URL absolue.
 La version `0.3.17` autorise la page de retour d’authentification depuis
 minaly.io et localhost pour que Chrome puisse terminer la connexion.
+La version `0.3.18` place le panneau dans la couche supérieure native du
+navigateur pour qu’il reste devant les menus et popovers de LinkedIn.
 
 ## Construire le package local
 
