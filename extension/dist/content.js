@@ -1020,9 +1020,14 @@ function minalyWatchHostPosition(host, handle) {
     });
     observer.observe(document.body, { childList: true, subtree: true });
     const timeout = window.setTimeout(() => observer.disconnect(), 15000);
+    const retryInterval = window.setInterval(() => {
+        if (host.classList.contains("minaly-floating"))
+            minalyPositionHost(host, handle);
+    }, 1000);
     return () => {
         observer.disconnect();
         window.clearTimeout(timeout);
+        window.clearInterval(retryInterval);
     };
 }
 function minalyShouldWaitForConversationIdentity(input) {

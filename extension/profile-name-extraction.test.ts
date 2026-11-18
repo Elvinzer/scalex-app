@@ -13,6 +13,8 @@ type FixtureNode = {
 };
 
 const contentSource = readFileSync(new URL("./dist/content.js", import.meta.url), "utf8");
+const mountCode = contentSource.lastIndexOf("\nminalyMount();");
+if (mountCode < 0) throw new Error("The extension content script has no mount entry point.");
 const visibleRect = { left: 10, right: 210, top: 10, bottom: 40, width: 200, height: 30 };
 
 function fixtureNode(textContent: string): FixtureNode {
@@ -93,6 +95,86 @@ function extractLinkedInPath(pathname: string): unknown {
   const context = createContext({});
   runInContext(contentSource.slice(0, mountCode), context);
   return runInContext(`minalyProfilePath("linkedin", ${JSON.stringify(pathname)})`, context);
+}
+
+function attachLauncherAfterLateLinkedInHeading(): {
+  initiallyFloating: boolean;
+  attachedAfterRetry: boolean;
+  retryCleared: boolean;
+  observerDisconnected: boolean;
+} {
+  type Parent = { append?: (host: Host) => void };
+  type Host = {
+    classList: { add(value: string): void; remove(value: string): void; contains(value: string): boolean };
+    parentElement: Parent | null;
+    previousElementSibling: object | null;
+    remove(): void;
+  };
+
+  const documentElement: Parent = { append(host) { host.parentElement = documentElement; } };
+  const profileParent: Parent = {};
+  const hostClasses = new Set<string>();
+  const host: Host = {
+    classList: {
+      add(value) { hostClasses.add(value); },
+      remove(value) { hostClasses.delete(value); },
+      contains(value) { return hostClasses.has(value); },
+    },
+    parentElement: documentElement,
+    previousElementSibling: null,
+    remove() { this.parentElement = null; this.previousElementSibling = null; },
+  };
+  let headingAvailable = false;
+  let observerDisconnected = false;
+  let retryCleared = false;
+  const retryCallbacks: Array<() => void> = [];
+  const heading = {
+    textContent: 'Henri "Hardisk" G.',
+    isConnected: true,
+    parentElement: profileParent,
+    getBoundingClientRect: () => visibleRect,
+    closest: () => null,
+    insertAdjacentElement(_position: string, inserted: Host) {
+      inserted.parentElement = profileParent;
+      inserted.previousElementSibling = this;
+      return inserted;
+    },
+  };
+  const context = createContext({
+    window: {
+      innerHeight: 1080,
+      location: { hostname: "www.linkedin.com", pathname: "/in/lehardisk/" },
+      getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+      setTimeout: () => 1,
+      clearTimeout: () => undefined,
+      setInterval: (callback: () => void) => { retryCallbacks.push(callback); return 2; },
+      clearInterval: () => { retryCleared = true; },
+    },
+    document: {
+      body: {},
+      documentElement,
+      querySelectorAll(selector: string) {
+        if (selector.startsWith('a[href*="/in/')) return [];
+        return headingAvailable && selector.includes("h1") ? [heading] : [];
+      },
+    },
+    HTMLElement: class {},
+    MutationObserver: class { observe() {} disconnect() { observerDisconnected = true; } },
+    testHost: host,
+  });
+  runInContext(contentSource.slice(0, mountCode), context);
+  const stop = runInContext("minalyWatchHostPosition(testHost, \"lehardisk\")", context) as () => void;
+  const initiallyFloating = host.classList.contains("minaly-floating");
+  headingAvailable = true;
+  retryCallbacks[0]?.();
+  stop();
+
+  return {
+    initiallyFloating,
+    attachedAfterRetry: host.parentElement === profileParent && host.previousElementSibling === heading,
+    retryCleared,
+    observerDisconnected,
+  };
 }
 
 function extractMessageTime(input: {
@@ -182,6 +264,15 @@ describe("CRM extension profile name extraction", () => {
 
     expect(result.name).toBe("Romain Bouvet, Ph.D");
     expect(result.queriedSelectors).toContain('a[href*="/in/romain-bouvet"]');
+  });
+
+  it("moves the floating launcher beside a LinkedIn name that appears after initial load", () => {
+    expect(attachLauncherAfterLateLinkedInHeading()).toEqual({
+      initiallyFloating: true,
+      attachedAfterRetry: true,
+      retryCleared: true,
+      observerDisconnected: true,
+    });
   });
 
   it("skips an Instagram profile action next to the visible profile identity", () => {

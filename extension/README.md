@@ -56,6 +56,8 @@ La version `0.3.17` autorise la page de retour d’authentification depuis
 minaly.io et localhost pour que Chrome puisse terminer la connexion.
 La version `0.3.18` place le panneau dans la couche supérieure native du
 navigateur pour qu’il reste devant les menus et popovers de LinkedIn.
+La version `0.3.19` réessaie de placer le bouton à côté du nom si LinkedIn
+affiche l’identité du profil après le chargement initial.
 
 ## Construire le package local
 

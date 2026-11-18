@@ -25,7 +25,7 @@ const messageAbTestServiceSource = readFileSync(new URL("../lib/crm/message-ab-t
 describe("Minaly CRM Chrome extension contract", () => {
   it("uses a minimal Manifest V3 surface", () => {
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.version).toBe("0.3.18");
+    expect(manifest.version).toBe("0.3.19");
     expect(manifest.permissions).toEqual(["storage", "tabs"]);
     expect(manifest.background.service_worker).toBe("dist/background.js");
     expect(manifest.host_permissions).toEqual(expect.arrayContaining(["https://www.minaly.io/*"]));
@@ -127,6 +127,8 @@ describe("Minaly CRM Chrome extension contract", () => {
     expect(contentSource).toContain('panel.matches(":popover-open")');
     expect(contentSource).toContain("panel.showPopover()");
     expect(contentSource).toContain("panel.hidePopover()");
+    expect(contentSource).toContain('if (host.classList.contains("minaly-floating")) minalyPositionHost(host, handle)');
+    expect(contentSource).toContain("window.clearInterval(retryInterval)");
     expect(contentSource).toContain("operationId += 1");
     expect(contentSource).toContain("chrome.runtime.onMessage.removeListener(handleRuntimeMessage)");
     expect(contentSource).toContain("reference.insertAdjacentElement(\"afterend\", host)");
