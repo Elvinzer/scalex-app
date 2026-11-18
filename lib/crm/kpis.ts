@@ -23,6 +23,7 @@ export type CrmKpiStageChange = {
   currentSnapshot?: boolean;
   currentOutcome?: CrmLeadOutcome;
   lastStatusChangedAt?: Date | null;
+  createdAt?: Date | null;
   includeInCurrentCounts?: boolean;
   includeInCohort?: boolean;
 };
@@ -202,7 +203,7 @@ export function computeCrmKpis(input: {
   const callsBookedAfterFirstMessage = new Set<string>();
   const soldLeadIds = new Set<string>();
   const noShowEventLeadIds = new Set<string>();
-  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; changedAt: Date; lastStatusChangedAt?: Date | null; includeInCurrentCounts?: boolean }>();
+  const currentStages = new Map<string, { stage: CrmLeadStage; outcome?: CrmLeadOutcome; changedAt: Date; lastStatusChangedAt?: Date | null; createdAt?: Date | null; currentSnapshot?: boolean; includeInCurrentCounts?: boolean }>();
   const stageChanges = (input.stageChanges ?? [])
     .filter((change) => change.occurredAt <= asOf)
     .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
@@ -248,6 +249,8 @@ export function computeCrmKpis(input: {
         outcome: change.currentOutcome,
         changedAt: change.occurredAt,
         lastStatusChangedAt: change.lastStatusChangedAt,
+        createdAt: change.createdAt,
+        currentSnapshot: true,
         includeInCurrentCounts: change.includeInCurrentCounts,
       });
       continue;
@@ -302,6 +305,18 @@ export function computeCrmKpis(input: {
   ]);
   for (const [leadId, current] of currentStages) {
     const statusDate = current.lastStatusChangedAt;
+    const firstMessageDate = statusDate ?? current.createdAt;
+    if (
+      current.stage === "first_message_sent"
+      && current.currentSnapshot === true
+      && firstMessageDate
+      && !datedFirstMessageLeadIds.has(leadId)
+      && !firstMessageDates.has(leadId)
+      && inPeriod(firstMessageDate, input.period)
+      && current.includeInCurrentCounts !== false
+    ) {
+      firstMessageDates.set(leadId, firstMessageDate);
+    }
     if (
       datedFirstMessageLeadIds.has(leadId)
       ||

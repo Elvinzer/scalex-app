@@ -590,10 +590,40 @@ function buildCrmLeadConditions(accountId: string, filters: CrmLeadFilters, now:
       )));
     };
 
+    const unrecordedMessageStage = and(
+      inArray(leads.crmStage, ["first_message_sent", "conversation_in_progress", "value_content_sent", "call_proposed", "call_booked"]),
+      or(
+        and(eq(leads.crmStage, "first_message_sent"), ...dateRange(leads.createdAt)),
+        latestStatusInRange("crm_kpi_latest_message_stage", "crm_kpi_newer_message_stage"),
+      ),
+      not(exists(db.select({ id: crmLeadEvents.id }).from(crmLeadEvents).where(and(
+        eq(crmLeadEvents.accountId, accountId),
+        eq(crmLeadEvents.leadId, leads.id),
+        eq(crmLeadEvents.type, "first_message_sent"),
+        sql`(
+          ${crmLeadEvents.metadata}->>'confirmedFrom' in ('crm', 'capture')
+          or ${crmLeadEvents.metadata}->>'selectedAtCapture' = 'true'
+          or ${crmLeadEvents.metadata}->>'source' = 'crm_import'
+          or (
+            ${crmLeadEvents.source} = 'migration'
+            and ${crmLeadEvents.sourceEventKey} = ('migration:first-message:' || ${leads.id}::text)
+            and ${crmLeadEvents.occurredAt} is not null
+          )
+        )`,
+      )))),
+      not(exists(db.select({ id: crmLeadStageHistory.id }).from(crmLeadStageHistory).where(and(
+        eq(crmLeadStageHistory.accountId, accountId),
+        eq(crmLeadStageHistory.leadId, leads.id),
+        isNull(crmLeadStageHistory.fromStage),
+        eq(crmLeadStageHistory.toStage, "first_message_sent"),
+      )))),
+    );
+
     if (filters.kpiMetric === "messages") {
       conditions.push(or(
         eventInRange("first_message_sent", "crm_kpi_message_event"),
         stageTransitionInRange("first_message_sent", "crm_kpi_message_stage"),
+        unrecordedMessageStage,
       ) ?? sql`false`);
     }
     if (filters.kpiMetric === "conversations") {
@@ -2180,7 +2210,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
         and(isNull(crmLeadStageHistory.fromStage), eq(crmLeadStageHistory.toStage, "first_message_sent")),
       ),
     )),
-    db.select({ lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome } }).from(leads).where(eq(leads.accountId, accountId)),
+    db.select({ lead: { id: leads.id, platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId, crmStage: leads.crmStage, crmOutcome: leads.crmOutcome, createdAt: leads.createdAt } }).from(leads).where(eq(leads.accountId, accountId)),
     db.select({ call: salesCalls, link: crmCallLinks, lead: { platform: leads.platform, offerId: leads.offerId, source: leads.source, setterId: leads.setterId } }).from(salesCalls).leftJoin(crmCallLinks, and(eq(crmCallLinks.salesCallId, salesCalls.id), eq(crmCallLinks.accountId, accountId))).leftJoin(leads, and(eq(crmCallLinks.leadId, leads.id), eq(leads.accountId, accountId))).where(and(
       eq(salesCalls.userId, accountId),
       or(
@@ -2278,6 +2308,7 @@ export async function getCrmKpiSources(accountId: string, from: Date, to: Date, 
       currentSnapshot: true,
       currentOutcome: lead.crmOutcome,
       lastStatusChangedAt: latestStatusChangedAtByLead.get(lead.id) ?? null,
+      createdAt: lead.createdAt,
       includeInCurrentCounts: !filters.setterId || lead.setterId === filters.setterId || setterCohortLeadIds.has(lead.id) || filteredStageLeadIds.has(lead.id),
     });
   }

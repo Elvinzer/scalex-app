@@ -157,6 +157,46 @@ describe("CRM KPI projection", () => {
     expect(counts.cohortConversations).toBe(1);
   });
 
+  it("counts an unconfirmed current first-message stage from its creation date", () => {
+    const counts = computeCrmKpis({
+      period,
+      asOf,
+      events: [],
+      stageChanges: [
+        {
+          leadId: "captured-first-message",
+          fromStage: null,
+          toStage: "first_message_sent",
+          occurredAt: asOf,
+          currentSnapshot: true,
+          createdAt: new Date("2026-09-12T09:00:00Z"),
+          lastStatusChangedAt: null,
+        },
+        {
+          leadId: "captured-conversation",
+          fromStage: null,
+          toStage: "conversation_in_progress",
+          occurredAt: asOf,
+          currentSnapshot: true,
+          createdAt: new Date("2026-09-12T09:00:00Z"),
+          lastStatusChangedAt: new Date("2026-09-12T10:00:00Z"),
+        },
+        {
+          leadId: "captured-conversation",
+          fromStage: "first_message_sent",
+          toStage: "conversation_in_progress",
+          occurredAt: new Date("2026-09-12T10:00:00Z"),
+        },
+      ],
+      calls: [],
+      sales: [],
+    });
+
+    expect(counts.messages).toBe(2);
+    expect(counts.conversations).toBe(1);
+    expect(counts.rates.response).toBe(0.5);
+  });
+
   it("counts legacy profile-capture messages on their capture timestamp", () => {
     const capturedFirstMessage = event({
       leadId: "captured-lead",
