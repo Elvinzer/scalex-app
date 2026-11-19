@@ -23,6 +23,10 @@ package contient la version compilée du content script et du service worker.
 La release `0.3.1` corrige la fermeture du panneau depuis la croix, y compris
 sur les pages sociales qui capturent les événements de clic.
 
+La release `0.3.20` ajoute un raccourci direct vers la fiche CRM dans les chats
+LinkedIn quand le destinataire correspond à un lead connu. Les fils dont
+l’identité ne peut pas être confirmée ne montrent pas ce raccourci.
+
 ## Préparer une release
 
 1. Augmenter `version` dans `extension/manifest.json` et reprendre la même

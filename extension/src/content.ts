@@ -158,7 +158,7 @@ function minalyHasVisibleMessageComposer(): boolean {
 
 function minalyIsConversationSurface(platform: MinalyExtensionPlatform): boolean {
   return minalyIsMessagingRoute(platform)
-    || (platform === "instagram" && minalyHasVisibleMessageComposer());
+    || minalyHasVisibleMessageComposer();
 }
 
 function minalyVisibleConversationProfile(platform: MinalyExtensionPlatform): { path: string; handle: string; element: HTMLElement } | null {
@@ -216,6 +216,9 @@ function minalyProfileUrl(): { platform: MinalyExtensionPlatform; url: string; h
     return result ? { platform: "instagram", url: `https://instagram.com${result.path}`, handle: result.handle } : null;
   }
   if (hostname === "linkedin.com") {
+    const conversation = minalyVisibleConversationProfile("linkedin");
+    if (conversation) return { platform: "linkedin", url: `https://linkedin.com${conversation.path}`, handle: conversation.handle, nameElement: conversation.element };
+    if (minalyIsConversationSurface("linkedin")) return null;
     const result = minalyProfilePath("linkedin", window.location.pathname);
     return result ? { platform: "linkedin", url: `https://linkedin.com${result.path}`, handle: result.handle } : null;
   }
@@ -1243,6 +1246,11 @@ function minalyMount(): void {
 .minaly-button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--minaly-accent); color: var(--minaly-accent-text); font-size: 13px; font-weight: 750; letter-spacing: -0.01em; box-shadow: 0 8px 20px var(--minaly-shadow); cursor: pointer; touch-action: manipulation; transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
 .minaly-button:hover { background: var(--minaly-accent-hover); box-shadow: 0 14px 32px var(--minaly-shadow); transform: translateY(-1px); }
 .minaly-button:active { transform: translateY(0); }
+.minaly-chat-crm-link { display: inline-grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, CanvasText 18%, Canvas); border-radius: 50%; background: Canvas; color: color-mix(in srgb, CanvasText 82%, Canvas); text-decoration: none; cursor: pointer; }
+.minaly-chat-crm-link[hidden] { display: none; }
+.minaly-chat-crm-link:hover { background: color-mix(in srgb, CanvasText 5%, Canvas); color: CanvasText; }
+.minaly-chat-crm-link:focus-visible { outline: 2px solid var(--minaly-accent); outline-offset: 2px; }
+.minaly-chat-crm-link .minaly-icon { width: 16px; height: 16px; }
 .minaly-panel { right: max(16px, env(safe-area-inset-right)); bottom: max(80px, calc(env(safe-area-inset-bottom) + 64px)); display: flex; width: min(390px, calc(100vw - 32px)); max-height: min(720px, calc(100dvh - 32px)); overflow: hidden; flex-direction: column; border: 1px solid var(--minaly-border); border-radius: 20px; background: var(--minaly-surface); color: var(--minaly-text); box-shadow: 0 24px 64px var(--minaly-shadow); font-size: 14px; line-height: 1.4; }
 .minaly-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--minaly-border); }
 .minaly-brand { display: flex; min-width: 0; align-items: center; gap: 10px; }
@@ -1329,11 +1337,19 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
   button.className = "minaly-button";
   button.type = "button";
   button.setAttribute("aria-expanded", "false");
+  const chatCrmLink = minalyElement("a");
+  chatCrmLink.className = "minaly-chat-crm-link";
+  chatCrmLink.setAttribute("aria-label", "Ouvrir la fiche lead dans le CRM");
+  chatCrmLink.title = "Ouvrir la fiche lead dans le CRM";
+  chatCrmLink.target = "_blank";
+  chatCrmLink.rel = "noopener noreferrer";
+  chatCrmLink.hidden = true;
+  chatCrmLink.append(minalyIcon("external"));
   const panel = minalyElement("div");
   panel.className = "minaly-panel";
   panel.setAttribute("popover", "manual");
   panel.hidden = true;
-  shadow.append(button, panel);
+  shadow.append(button, chatCrmLink, panel);
   document.documentElement.append(host);
   const stopHostPositionWatch = minalyWatchHostPosition(host, profile.normalizedHandle);
 
@@ -1348,6 +1364,36 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
   let successLeadUrl: string | null = null;
   let extensionUpdate: MinalyExtensionUpdate | null = null;
   let operationId = 0;
+  const isLinkedInChat = profile.platform === "linkedin" && minalyIsConversationSurface("linkedin");
+  const syncChatCrmLink = () => {
+    if (!isLinkedInChat || resolution?.kind !== "known") {
+      chatCrmLink.hidden = true;
+      chatCrmLink.removeAttribute("href");
+      return;
+    }
+    const leadLink = minalyLeadLink(resolution.lead.id, resolutionCrmUrl);
+    if (!leadLink) {
+      chatCrmLink.hidden = true;
+      chatCrmLink.removeAttribute("href");
+      return;
+    }
+    chatCrmLink.href = leadLink.href;
+    chatCrmLink.hidden = false;
+  };
+  const resolveChatCrmLink = async () => {
+    if (!isLinkedInChat) return;
+    const requestId = operationId;
+    const result = await minalyRequest("/api/crm/extension/resolve", minalyApiProfile(profile));
+    if (requestId !== operationId || result.status < 200 || result.status >= 300) return;
+    const parsed = minalyReadResolution(result.body);
+    if (!parsed || parsed.resolution.kind !== "known") return;
+    resolutionAccountId = parsed.accountId;
+    resolutionCrmUrl = parsed.crmUrl;
+    resolution = parsed.resolution;
+    messageTestStatus = parsed.messageTestStatus;
+    resolvedAt = Date.now();
+    syncChatCrmLink();
+  };
   const close = () => {
     operationId += 1;
     state = "closed";
@@ -1399,6 +1445,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
     draw();
   };
   const draw = () => {
+    syncChatCrmLink();
     if (state === "closed") {
       if (panel.matches(":popover-open")) panel.hidePopover();
       panel.hidden = true;
@@ -1547,6 +1594,7 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
   };
   void refreshUpdate();
   const updateCheckInterval = window.setInterval(() => { void refreshUpdate(); }, 5 * 60_000);
+  void resolveChatCrmLink();
   button.addEventListener("click", () => {
     if (state !== "closed") { close(); return; }
     void resolveAndDraw();

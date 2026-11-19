@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Minaly CRM",
-  "version": "0.3.19",
-  "description": "Capture les profils sociaux visibles dans le CRM Minaly.",
+  "version": "0.3.20",
+  "description": "Capture les profils sociaux et ouvre les leads Minaly depuis LinkedIn.",
   "permissions": [
     "storage",
     "tabs"

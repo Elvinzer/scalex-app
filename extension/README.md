@@ -58,6 +58,8 @@ La version `0.3.18` place le panneau dans la couche supérieure native du
 navigateur pour qu’il reste devant les menus et popovers de LinkedIn.
 La version `0.3.19` réessaie de placer le bouton à côté du nom si LinkedIn
 affiche l’identité du profil après le chargement initial.
+La version `0.3.20` ajoute un raccourci vers la fiche CRM à côté du nom du
+contact dans les chats LinkedIn, uniquement quand le lead est reconnu.
 
 ## Construire le package local
 
