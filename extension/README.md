@@ -60,6 +60,8 @@ La version `0.3.19` réessaie de placer le bouton à côté du nom si LinkedIn
 affiche l’identité du profil après le chargement initial.
 La version `0.3.20` ajoute un raccourci vers la fiche CRM à côté du nom du
 contact dans les chats LinkedIn, uniquement quand le lead est reconnu.
+La version `0.3.21` affiche les noms et pseudos LinkedIn accentués, conserve
+leurs liens de profil et applique une police sans empattement au panneau.
 
 ## Construire le package local
 

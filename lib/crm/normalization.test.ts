@@ -11,6 +11,23 @@ describe("CRM social identity normalization", () => {
     expect(normalizeProfileUrl("linkedin", "https://www.linkedin.com/in/Marc-Lefebvre/?trk=feed")).toBe("https://linkedin.com/in/marc-lefebvre");
   });
 
+  it("accepts accented LinkedIn handles while retaining the existing CRM identity", () => {
+    const canonicalProfileUrl = "https://linkedin.com/in/fr%c3%a9d%c3%a9ric-chaussadas-4b70a757";
+    const encodedHandle = "fr%c3%a9d%c3%a9ric-chaussadas-4b70a757";
+    const readableHandle = "frédéric-chaussadas-4b70a757";
+    expect(normalizeCapturedProfile({
+      profileUrl: "https://www.linkedin.com/in/fr%C3%A9d%C3%A9ric-chaussadas-4b70a757/",
+      handle: readableHandle,
+      displayName: "Frédéric Chaussadas",
+    })).toMatchObject({ canonicalProfileUrl, normalizedHandle: encodedHandle, displayName: "Frédéric Chaussadas", firstName: "Frédéric" });
+    expect(normalizeCapturedProfile({
+      platform: "linkedin",
+      handle: encodedHandle,
+      displayName: encodedHandle,
+      firstName: encodedHandle,
+    })).toMatchObject({ canonicalProfileUrl, normalizedHandle: encodedHandle, displayName: readableHandle, firstName: readableHandle });
+  });
+
   it("accepts the other profile platforms", () => {
     expect(normalizeProfileUrl("tiktok", "https://www.tiktok.com/@Marc.Lefebvre?lang=fr")).toBe("https://tiktok.com/@marc.lefebvre");
     expect(normalizeProfileUrl("x", "https://x.com/Marc.Lefebvre?lang=fr")).toBe("https://x.com/marc.lefebvre");
@@ -19,6 +36,8 @@ describe("CRM social identity normalization", () => {
   it("rejects non-profile routes and unsupported hosts", () => {
     expect(normalizeProfileUrl("instagram", "https://instagram.com/explore")).toBeNull();
     expect(normalizeProfileUrl("linkedin", "https://example.com/in/marc")).toBeNull();
+    expect(normalizeProfileUrl("linkedin", "https://www.linkedin.com/in/fr%2fderic")).toBeNull();
+    expect(normalizeProfileUrl("linkedin", "https://www.linkedin.com/in/fr%c3")).toBeNull();
     expect(detectPlatform("https://example.com/marc")).toBeNull();
   });
 

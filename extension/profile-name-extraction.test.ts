@@ -33,6 +33,7 @@ function extractVisibleName(input: {
   identityHeadings?: FixtureNode[];
   globalHeadings?: FixtureNode[];
   profileLinks?: FixtureNode[];
+  verificationTriggers?: FixtureNode[];
   preferredElement?: FixtureNode;
 }): { name: unknown; queriedSelectors: string[] } {
   const mountCode = contentSource.lastIndexOf("\nminalyMount();");
@@ -54,6 +55,7 @@ function extractVisibleName(input: {
     querySelectorAll(selector: string) {
       queriedSelectors.push(selector);
       if (selector.startsWith('a[href*="/in/')) return profileLinks;
+      if (selector.startsWith("a[componentkey")) return input.verificationTriggers ?? [];
       if (selector === "h1, h2") return globalHeadings;
       if (selector.startsWith("textarea")) return [];
       if (selector.includes("main") || selector.includes("[role=main]")) return identityHeadings;
@@ -213,6 +215,18 @@ describe("CRM extension profile name extraction", () => {
     expect(extractLinkedInPath("/messaging/thread/123/")).toBeNull();
   });
 
+  it("keeps a readable LinkedIn handle and a valid, stable URL path", () => {
+    for (const slug of ["frédéric-chaussadas-4b70a757", "fr%C3%A9d%C3%A9ric-chaussadas-4b70a757", "fre\u0301de\u0301ric-chaussadas-4b70a757"]) {
+      expect(extractLinkedInPath(`/in/${slug}/`)).toEqual({
+        path: "/in/fr%c3%a9d%c3%a9ric-chaussadas-4b70a757",
+        handle: "frédéric-chaussadas-4b70a757",
+      });
+    }
+    for (const slug of ["fr%C3", "fr%2Fderic", "fr%3Fderic", "fr%23deric", "fr%00deric", "fr%25C3%25A9deric"]) {
+      expect(extractLinkedInPath(`/in/${slug}/`)).toBeNull();
+    }
+  });
+
   it("uses the Instagram profile identity heading when it shows a display name", () => {
     const result = extractVisibleName({
       platform: "instagram",
@@ -250,20 +264,43 @@ describe("CRM extension profile name extraction", () => {
     expect(result.name).toBe("Jane Doe");
   });
 
-  it("uses LinkedIn's current profile link when the name is not exposed as a heading", () => {
+  it("matches the current profile link even with a different encoding and an absolute href", () => {
     const profileLink = {
-      ...fixtureNode("Romain Bouvet, Ph.D Voir les vérifications de Romain"),
+      ...fixtureNode("Frédéric Chaussadas Voir les vérifications de Frédéric"),
+      getAttribute: (name: string) => name === "href" ? "https://www.linkedin.com/in/fr%C3%A9d%C3%A9ric-chaussadas-4b70a757/?trk=profile" : null,
       querySelector: () => null,
+    };
+    const otherProfileLink = {
+      ...profileLink,
+      textContent: "Autre personne Voir les vérifications de cette personne",
+      getAttribute: () => "/in/frédéric-chaussadas-4b70a757-2/",
     };
     const result = extractVisibleName({
       platform: "linkedin",
-      handle: "romain-bouvet",
-      pathname: "/in/romain-bouvet/",
-      profileLinks: [profileLink],
+      handle: "frédéric-chaussadas-4b70a757",
+      pathname: "/in/fr%c3%a9d%c3%a9ric-chaussadas-4b70a757/",
+      profileLinks: [otherProfileLink, profileLink],
     });
 
-    expect(result.name).toBe("Romain Bouvet, Ph.D");
-    expect(result.queriedSelectors).toContain('a[href*="/in/romain-bouvet"]');
+    expect(result.name).toBe("Frédéric Chaussadas");
+    expect(result.queriedSelectors).toContain('a[href*="/in/"]');
+  });
+
+  it("reads the LinkedIn verification trigger tied to the accented profile handle", () => {
+    const trigger = (name: string, slug: string) => ({
+      ...fixtureNode(name),
+      getAttribute: (attribute: string) => attribute === "componentkey" ? `ProfileVerificationTriggerRef-${slug}` : "https://www.linkedin.com/",
+      querySelector: () => fixtureNode(name),
+    });
+    expect(extractVisibleName({
+      platform: "linkedin",
+      handle: "frédéric-chaussadas-4b70a757",
+      pathname: "/in/fr%C3%A9d%C3%A9ric-chaussadas-4b70a757/",
+      verificationTriggers: [
+        trigger("Autre personne", "autre-personne"),
+        trigger("Frédéric Chaussadas", "frédéric-chaussadas-4b70a757"),
+      ],
+    }).name).toBe("Frédéric Chaussadas");
   });
 
   it("moves the floating launcher beside a LinkedIn name that appears after initial load", () => {

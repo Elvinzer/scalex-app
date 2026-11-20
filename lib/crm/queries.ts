@@ -29,6 +29,7 @@ import { businesses,
 
 import { defaultStageAfterReopen, eventForOutcome, eventForStage, legacyStageForCrmStage } from "./machine";
 import { isCrmKpiEventAttributedToSetter, isReliableFirstMessageEvent, matchesCrmKpiAttribution, type CrmKpiStageChange, type CrmPrimaryKpiMetric } from "./kpis";
+import { normalizeHandle } from "./normalization";
 import type { CrmSaleValidationInput } from "@/lib/sales/schema";
 import type {
   CrmActionCategory,
@@ -947,7 +948,10 @@ export async function searchCrmProfileCandidates(accountId: string, query: strin
   if (trimmed.length < 2) return [];
   const normalized = normalizeSearchText(trimmed);
   const queryEmail = normalizeEmail(trimmed);
-  const pattern = `%${trimmed}%`;
+  const pattern = `%${trimmed.replace(/[\\%_]/g, "\\$&")}%`;
+  const linkedInHandle = /^(?:https?:\/\/(?:www\.)?linkedin\.com\/(?:in|company)\/|@?[^\s/?#]+$)/i.test(trimmed)
+    ? normalizeHandle("linkedin", trimmed)
+    : "";
   const rows = await db
     .select({ lead: leads, setterName: setters.name })
     .from(leads)
@@ -961,11 +965,16 @@ export async function searchCrmProfileCandidates(accountId: string, query: strin
         ilike(leads.normalizedHandle, pattern),
         ilike(leads.email, pattern),
         ilike(leads.phone, pattern),
+        ...(linkedInHandle ? [and(eq(leads.platform, "linkedin"), eq(leads.normalizedHandle, linkedInHandle))] : []),
         ...(queryEmail ? [eq(leads.emailNormalized, queryEmail)] : []),
         ...(normalized ? [exists(db.select({ id: crmLeadProfiles.id }).from(crmLeadProfiles).where(and(
           eq(crmLeadProfiles.accountId, accountId),
           eq(crmLeadProfiles.leadId, leads.id),
-          or(eq(crmLeadProfiles.searchNameNormalized, normalized), ilike(crmLeadProfiles.normalizedHandle, pattern)),
+          or(
+            eq(crmLeadProfiles.searchNameNormalized, normalized),
+            ilike(crmLeadProfiles.normalizedHandle, pattern),
+            ...(linkedInHandle ? [and(eq(crmLeadProfiles.platform, "linkedin"), eq(crmLeadProfiles.normalizedHandle, linkedInHandle))] : []),
+          ),
         )))] : []),
       ),
     ))

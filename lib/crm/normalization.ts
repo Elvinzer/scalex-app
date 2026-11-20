@@ -52,6 +52,15 @@ function hostnameFor(platform: ProfilePlatform): string {
   return PLATFORM_HOSTS[platform];
 }
 
+export function decodeLinkedInHandle(segment: string): string | null {
+  try {
+    const handle = decodeURIComponent(segment).normalize("NFC").toLowerCase();
+    return /^[\p{L}\p{M}\p{N}_-]+$/u.test(handle) ? handle : null;
+  } catch {
+    return null;
+  }
+}
+
 function canonicalPath(platform: ProfilePlatform, url: URL): string | null {
   const parts = url.pathname.split("/").filter(Boolean).map((part) => part.trim());
   if (parts.length === 0) return null;
@@ -64,9 +73,9 @@ function canonicalPath(platform: ProfilePlatform, url: URL): string | null {
 
   if (platform === "linkedin") {
     const section = parts[0]?.toLowerCase();
-    const handle = parts[1];
+    const handle = decodeLinkedInHandle(parts[1] ?? "");
     if (!handle || !section || !["in", "company"].includes(section)) return null;
-    return `/${section}/${handle.toLowerCase()}`;
+    return `/${section}/${encodeURIComponent(handle).toLowerCase()}`;
   }
 
   return `/${parts.join("/").toLowerCase()}`;
@@ -110,7 +119,12 @@ export function detectPlatform(rawUrl: string): CrmPlatform | null {
 
 export function normalizeHandle(platform: CrmPlatform, handle: string): string {
   const value = handle.trim().replace(/^@+/, "").replace(/^https?:\/\/[^/]+\//i, "");
-  if (platform === "linkedin") return value.replace(/^in\//i, "").replace(/^company\//i, "").split(/[/?#]/)[0]?.toLowerCase() ?? "";
+  if (platform === "linkedin") {
+    const segment = value.replace(/^(?:in|company)\//i, "").split(/[/?#]/)[0] ?? "";
+    const decoded = decodeLinkedInHandle(segment);
+    // Retain the existing CRM identity format for stored profiles and lookups.
+    return decoded ? encodeURIComponent(decoded).toLowerCase() : "";
+  }
   return value.split(/[/?#]/)[0]?.toLowerCase() ?? "";
 }
 
@@ -145,14 +159,13 @@ export function normalizeCapturedProfile(input: {
   const rawFirstName = cleanText(input.firstName);
   const rawLastName = cleanText(input.lastName);
   const nameFromParts = [rawFirstName, rawLastName].filter(Boolean).join(" ");
-  const displayName = isReliableProfileName(rawDisplayName)
-    ? rawDisplayName
-    : isReliableProfileName(nameFromParts)
-      ? nameFromParts
-      : normalizedHandle;
+  const fallbackName = platform === "linkedin" ? decodeLinkedInHandle(normalizedHandle) ?? normalizedHandle : normalizedHandle;
+  const isEncodedFallback = (name: string) => fallbackName !== normalizedHandle && name.toLowerCase() === normalizedHandle;
+  const preferredName = isReliableProfileName(rawDisplayName) ? rawDisplayName : nameFromParts;
+  const displayName = isReliableProfileName(preferredName) && !isEncodedFallback(preferredName) ? preferredName : fallbackName;
   const split = splitName(displayName);
   const legacyPartsAreGeneric = isGenericProfileActionLabel(nameFromParts);
-  const firstName = legacyPartsAreGeneric || !isReliableProfileName(rawFirstName) ? split.firstName : rawFirstName;
+  const firstName = legacyPartsAreGeneric || !isReliableProfileName(rawFirstName) || isEncodedFallback(rawFirstName) ? split.firstName : rawFirstName;
   const lastName = legacyPartsAreGeneric || !isReliableProfileName(rawLastName) ? split.lastName : rawLastName;
   const capturedAt = input.capturedAt ?? new Date().toISOString();
   const validCapturedAt = Number.isNaN(Date.parse(capturedAt)) ? new Date().toISOString() : new Date(capturedAt).toISOString();

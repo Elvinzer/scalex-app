@@ -14,6 +14,15 @@ function minalySplitName(displayName) {
     const parts = displayName.trim().split(/\s+/).filter(Boolean);
     return { firstName: parts[0] ?? displayName, lastName: parts.slice(1).join(" ") };
 }
+function minalyLinkedInHandle(segment) {
+    try {
+        const handle = decodeURIComponent(segment).normalize("NFC").toLowerCase();
+        return /^[\p{L}\p{M}\p{N}_-]+$/u.test(handle) ? handle : null;
+    }
+    catch {
+        return null;
+    }
+}
 function minalyProfilePath(platform, rawPath) {
     const parts = rawPath.split("/").filter(Boolean);
     if (platform === "instagram") {
@@ -23,10 +32,10 @@ function minalyProfilePath(platform, rawPath) {
         return { path: `/${handle}`, handle };
     }
     const section = parts[0]?.toLowerCase();
-    const handle = parts[1]?.toLowerCase();
+    const handle = minalyLinkedInHandle(parts[1] ?? "");
     if (section !== "in" || !handle)
         return null;
-    return { path: `/${section}/${handle}`, handle };
+    return { path: `/${section}/${encodeURIComponent(handle).toLowerCase()}`, handle };
 }
 function minalyProfileAnchorPath(anchor, hostname, platform) {
     const href = anchor.getAttribute("href");
@@ -202,10 +211,21 @@ function minalyVisibleNameHeading(preferredElement) {
     if (platform === "linkedin") {
         const currentProfile = minalyProfilePath("linkedin", window.location.pathname);
         if (currentProfile) {
-            const profileLinkSelector = `a[href*="${currentProfile.path}"]`;
-            const nameLinks = Array.from(document.querySelectorAll(profileLinkSelector))
+            const verificationKey = "ProfileVerificationTriggerRef-";
+            const verificationTriggers = document.querySelectorAll('a[componentkey^="ProfileVerificationTriggerRef-"][aria-haspopup="dialog"]');
+            for (const trigger of Array.from(verificationTriggers)) {
+                const key = trigger.getAttribute("componentkey") ?? "";
+                if (minalyLinkedInHandle(key.slice(verificationKey.length)) !== currentProfile.handle)
+                    continue;
+                const name = trigger.querySelector("h1, h2, [role=heading]");
+                if (name && minalyIsReliableProfileNameElement(name))
+                    return name;
+            }
+            const nameLinks = Array.from(document.querySelectorAll('a[href*="/in/"]'))
                 .filter((anchor) => {
                 if (!minalyIsVisibleElement(anchor))
+                    return false;
+                if (minalyProfileAnchorPath(anchor, hostname, platform)?.path !== currentProfile.path)
                     return false;
                 const name = anchor.querySelector(".text-heading-xlarge, h1, h2");
                 const label = anchor.textContent?.trim().replace(/\s+/g, " ") ?? "";
@@ -369,10 +389,19 @@ function minalyReadLead(value, fallbackMessageTestAssignment) {
     if (!minalyIsRecord(value) || typeof value.id !== "string" || typeof value.displayName !== "string" || typeof value.stage !== "string" || typeof value.outcome !== "string")
         return null;
     const nextAction = minalyIsRecord(value.nextAction) && typeof value.nextAction.title === "string" && typeof value.nextAction.dueAt === "string" ? { title: value.nextAction.title, dueAt: value.nextAction.dueAt } : null;
-    const profiles = Array.isArray(value.profiles) ? value.profiles.flatMap((item) => minalyIsRecord(item) && typeof item.platform === "string" && typeof item.normalizedHandle === "string" ? [{ platform: item.platform, canonicalProfileUrl: typeof item.canonicalProfileUrl === "string" ? item.canonicalProfileUrl : null, normalizedHandle: item.normalizedHandle, displayName: typeof item.displayName === "string" ? item.displayName : null }] : []) : [];
+    const profiles = Array.isArray(value.profiles) ? value.profiles.flatMap((item) => {
+        if (!minalyIsRecord(item) || typeof item.platform !== "string" || typeof item.normalizedHandle !== "string")
+            return [];
+        const handle = item.platform === "linkedin" ? minalyLinkedInHandle(item.normalizedHandle) ?? item.normalizedHandle : item.normalizedHandle;
+        const name = typeof item.displayName === "string" ? item.displayName : null;
+        return [{ platform: item.platform, canonicalProfileUrl: typeof item.canonicalProfileUrl === "string" ? item.canonicalProfileUrl : null, normalizedHandle: handle, displayName: name?.toLowerCase() === item.normalizedHandle.toLowerCase() && name.includes("%") ? handle : name }];
+    }) : [];
+    const displayName = value.displayName.includes("%") ? minalyLinkedInHandle(value.displayName) : null;
+    const isEncodedLinkedInName = displayName !== null && ((value.platform === "linkedin" && typeof value.normalizedHandle === "string" && minalyLinkedInHandle(value.normalizedHandle) === displayName)
+        || profiles.some((profile) => profile.platform === "linkedin" && profile.normalizedHandle === displayName));
     const matchSignals = Array.isArray(value.matchSignals) ? value.matchSignals.filter((item) => typeof item === "string") : [];
     const messageTestAssignment = minalyReadMessageTestAssignment(value.messageTestAssignment) ?? minalyReadMessageTestAssignment(fallbackMessageTestAssignment);
-    return { id: value.id, displayName: value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, profiles, whatsappHref: typeof value.whatsappHref === "string" ? value.whatsappHref : null, matchSignals, matchScore: typeof value.matchScore === "number" ? value.matchScore : null, stage: value.stage, outcome: value.outcome, contactState: value.contactState === "contacted" ? "contacted" : "new", messageOccurredAt: typeof value.messageOccurredAt === "string" ? value.messageOccurredAt : null, messageTestAssignment, respondedAt: typeof value.respondedAt === "string" ? value.respondedAt : null, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
+    return { id: value.id, displayName: isEncodedLinkedInName ? displayName : value.displayName, canonicalProfileUrl: typeof value.canonicalProfileUrl === "string" ? value.canonicalProfileUrl : null, profiles, whatsappHref: typeof value.whatsappHref === "string" ? value.whatsappHref : null, matchSignals, matchScore: typeof value.matchScore === "number" ? value.matchScore : null, stage: value.stage, outcome: value.outcome, contactState: value.contactState === "contacted" ? "contacted" : "new", messageOccurredAt: typeof value.messageOccurredAt === "string" ? value.messageOccurredAt : null, messageTestAssignment, respondedAt: typeof value.respondedAt === "string" ? value.respondedAt : null, responsibleSetterName: typeof value.responsibleSetterName === "string" ? value.responsibleSetterName : null, nextAction };
 }
 function minalyReadCrmUrl(value) {
     if (typeof value !== "string")
@@ -532,6 +561,21 @@ function minalyProfileCard(displayName, secondary, profileUrl = null) {
         card.append(profileLink);
     return card;
 }
+function minalyProfileUrlLabel(url) {
+    try {
+        const parsed = new URL(url);
+        if (parsed.hostname.replace(/^www\./, "") !== "linkedin.com")
+            return url;
+        const profile = minalyProfilePath("linkedin", parsed.pathname);
+        if (!profile)
+            return url;
+        const path = parsed.pathname.replace(/^\/in\/[^/]+/i, () => `/in/${profile.handle}`);
+        return `${parsed.origin}${path}${parsed.search}${parsed.hash}`;
+    }
+    catch {
+        return url;
+    }
+}
 function minalyProfileLink(url, label = "Ouvrir le profil") {
     if (!url)
         return null;
@@ -550,7 +594,7 @@ function minalyProfileLink(url, label = "Ouvrir le profil") {
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.className = "minaly-profile-link";
-    link.title = url;
+    link.title = minalyProfileUrlLabel(url);
     link.append(minalyElement("span", label), minalyIcon("external"));
     return link;
 }
@@ -881,7 +925,7 @@ function minalyBuildPanel(shadow, state, resolution, profile, message, messageTe
         const responsible = qualification?.responsible?.name ?? "À définir";
         const details = document.createElement("div");
         details.className = "minaly-details-grid";
-        details.append(minalyDetail("Responsable", responsible, "Depuis ta session"), minalyDetail("Profil", profile.canonicalProfileUrl, "Lecture seule"));
+        details.append(minalyDetail("Responsable", responsible, "Depuis ta session"), minalyDetail("Profil", minalyProfileUrlLabel(profile.canonicalProfileUrl), "Lecture seule"));
         body.append(details);
         const context = document.createElement("div");
         context.className = "minaly-context";
@@ -1059,9 +1103,10 @@ function minalyMount() {
     if (document.getElementById("minaly-crm-extension"))
         return;
     const detected = minalyProfileUrl();
-    const profile = minalyProfile(detected);
-    if (!profile)
+    const initialProfile = minalyProfile(detected);
+    if (!initialProfile)
         return;
+    let profile = initialProfile;
     const host = document.createElement("div");
     host.id = "minaly-crm-extension";
     const shadow = host.attachShadow({ mode: "closed" });
@@ -1097,7 +1142,8 @@ function minalyMount() {
 * { box-sizing: border-box; }
 .minaly-panel { position: fixed; z-index: 2147483647; inset: auto; margin: 0; }
 .minaly-panel[hidden] { display: none; }
-.minaly-button, .minaly-panel, .minaly-panel button, .minaly-panel input, .minaly-panel select, .minaly-panel textarea { font-family: inherit; }
+.minaly-button, .minaly-panel { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.minaly-panel button, .minaly-panel input, .minaly-panel select, .minaly-panel textarea { font-family: inherit; }
 .minaly-button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--minaly-accent); color: var(--minaly-accent-text); font-size: 13px; font-weight: 750; letter-spacing: -0.01em; box-shadow: 0 8px 20px var(--minaly-shadow); cursor: pointer; touch-action: manipulation; transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease; }
 .minaly-button:hover { background: var(--minaly-accent-hover); box-shadow: 0 14px 32px var(--minaly-shadow); transform: translateY(-1px); }
 .minaly-button:active { transform: translateY(0); }
@@ -1580,6 +1626,12 @@ textarea.minaly-field { min-height: 72px; resize: vertical; }
         if (state !== "closed") {
             close();
             return;
+        }
+        const current = minalyProfile();
+        if (current?.canonicalProfileUrl === profile.canonicalProfileUrl
+            && current.displayName !== profile.displayName && current.displayName !== current.normalizedHandle) {
+            profile = { ...profile, displayName: current.displayName, firstName: current.firstName, lastName: current.lastName };
+            resolvedAt = 0;
         }
         void resolveAndDraw();
     });
